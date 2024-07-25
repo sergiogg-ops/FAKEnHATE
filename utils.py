@@ -3,14 +3,17 @@ from sklearn.metrics import classification_report
 import pandas as pd
 import lightning as L
 import torch
+import spacy
 
 LABELS = {'Fake':0, 'True':1}
 
 class FakeSet(Dataset):
-    def __init__(self, path):
+    def __init__(self, path, sep = ''):
         data = pd.read_json(path)
         self.text = list(data['text'].values)
         self.label = torch.tensor(data['category'].apply(lambda x: LABELS[x]),dtype=torch.long)
+        if 'headline' in data.columns:
+            self.text = [h + sep + t if h else t for h,t in zip(data['headline'], self.text)]
 
     def __len__(self):
         return len(self.label)
@@ -22,11 +25,13 @@ class FakeModel(torch.nn.Module):
     def __init__(self, model, output_size=2):
         super().__init__()
         self.model = model
-        self.fc = torch.nn.Linear(model.config.hidden_size, output_size)
+        self.fc = torch.nn.Sequential(
+            torch.nn.GELU(),
+            torch.nn.Dropout(0.3),
+            torch.nn.Linear(model.config.hidden_size, output_size))
 
     def forward(self, x):
-        x = torch.nn.functional.gelu(self.model(x).pooler_output)
-        return self.fc(x)
+        return self.fc(self.model(x).pooler_output)
 
 class LightningModel(L.LightningModule):
     def __init__(self, model, tokenizer, opt, lr_scheduler = None):
@@ -84,6 +89,16 @@ class LightningModel(L.LightningModule):
     def configure_optimizers(self):
         return {'optimizer': self.opt,
                 'lr_scheduler': self.lr_scheduler}
+
+class NamedEntityMasker:
+    def __init__(self):
+        self.model = spacy.load('es_core_news_sm')
+    
+    def __call__(self, text):
+        doc = self.model(text)
+        for ent in doc.ents:
+            text = text.replace(ent.text, f'*{ent.label_}*')
+        return text
 
 def seed_everything(seed=42):
     torch.manual_seed(seed)
