@@ -1,4 +1,3 @@
-from transformers import TranslationPipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 import pandas as pd
 import numpy as np
 import sys

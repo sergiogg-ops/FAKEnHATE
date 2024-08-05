@@ -2,7 +2,6 @@ import pandas as pd
 from transformers import MarianMTModel, MarianTokenizer, TranslationPipeline
 from argparse import ArgumentParser
 import translation_utils as utils
-from iso639 import Lang
 import numpy as np
 import os
 

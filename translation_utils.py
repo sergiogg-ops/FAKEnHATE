@@ -1,10 +1,6 @@
 from tqdm import tqdm
 from transformers import TranslationPipeline, logging
 from nltk.tokenize import sent_tokenize
-from iso639 import Lang
-import pandas as pd
-import re
-import unicodedata
 
 class TranslationPipelineWithProgress:
     '''

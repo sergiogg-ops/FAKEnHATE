@@ -165,3 +165,4 @@ data/*
 models/*
 logs/*
 *.out
+*.tar
