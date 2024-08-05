@@ -26,7 +26,7 @@ class TranslationPipelineWithProgress:
         self.translator = TranslationPipeline(model=model,tokenizer=tokenizer, batch_size=batch_size, device=device, **kwargs)
         self.batch_size = batch_size
 
-    def __call__(self, texts, **kwargs):
+    def __call__(self, texts, desc=None, **kwargs):
         '''
         Translate the texts using the TranslationPipeline.
 
@@ -37,9 +37,11 @@ class TranslationPipelineWithProgress:
         Returns:
             List with the translations.
         '''
+        if not desc:
+            desc = f"Traduciendo {kwargs['src_lang']}-{kwargs['tgt_lang']}"
         translations = []
         logging.set_verbosity_error()
-        for i in tqdm(range(0, len(texts), self.batch_size), desc=f"Traduciendo {kwargs['src_lang']}-{kwargs['tgt_lang']}", unit="batch"):
+        for i in tqdm(range(0, len(texts), self.batch_size), desc=desc, unit="batch"):
             batch_texts = texts[i:i + self.batch_size]
             batch_translations = self.translator(batch_texts, **kwargs)
             translations.extend(batch_translations)
@@ -132,7 +134,7 @@ def wrapp_lists(sents, mask):
             data[-1].append(sent)
     return data
 
-def translate(translator, data, src_lang, tgt_lang, field='message_description', flag='translated_message'):
+def translate(translator, data, src_lang, tgt_lang, field='message_description'):
     '''
     Translate the captions of the samples in the data.
 
