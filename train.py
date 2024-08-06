@@ -45,14 +45,14 @@ train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size
 dev_loader = torch.utils.data.DataLoader(dev_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 #test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
-lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
+#optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
+#lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
 
-model = utils.LightningModel(model, tokenizer, optimizer, lr_scheduler)
+model = utils.LightningModel(model, tokenizer, lr=args.learning_rate, sch_start_factor=args.lr_scheduler, sch_iters=args.epochs)
 save_dir = os.path.join(args.save_dir, args.experiment_name)
 callbacks = [L.pytorch.callbacks.ModelCheckpoint(dirpath=save_dir, 
                                                  filename=args.run_name + '-{step}', 
-                                                 monitor='loss_dev', mode='min', save_top_k=2),
+                                                 monitor='f1_dev', mode='min', save_top_k=2),
              L.pytorch.callbacks.EarlyStopping(monitor='loss_dev', mode='min', patience=3)]
 logger = L.pytorch.loggers.MLFlowLogger(save_dir='logs', experiment_name=args.experiment_name, run_name=args.run_name)
 trainer = L.Trainer(max_epochs=args.epochs,

@@ -33,8 +33,8 @@ true = pd.DataFrame([true.loc[true_idx[i]] for i in range(N)])
 fake.rename(columns={'label':'category'}, inplace=True)
 fake['category'] = 'Fake'
 #true = true[true['subcorpus'] == 'mainstream']
-#true.rename(columns={'subcorpus':'category','txt':'text'}, inplace=True)
-#true['category'] = 'True'
+true.rename(columns={'subcorpus':'category'}, inplace=True)
+true['category'] = 'True'
 
 # LENGTHS BIAS CHECK
 lengths = [len(sample['text'].split()) for _,sample in fake.iterrows()]

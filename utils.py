@@ -78,7 +78,7 @@ class LightningModel(L.LightningModule):
     '''
     Lightning module envelope for fake news classification
     '''
-    def __init__(self, model, tokenizer, opt, lr_scheduler = None):
+    def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10):
         '''
         Parameters:
             model: FakeModel, model for fake news classification
@@ -89,8 +89,10 @@ class LightningModel(L.LightningModule):
         super().__init__()
         self.model = model
         self.tokenizer = tokenizer
-        self.opt = opt
-        self.lr_scheduler = lr_scheduler   
+        self.lr = lr
+        self.sch_start_factor = sch_start_factor
+        self.sch_iters = sch_iters
+        self.save_hyperparameters('lr', 'sch_start_factor', 'sch_iters')  
 
     def forward(self, batch):
         '''
@@ -188,8 +190,12 @@ class LightningModel(L.LightningModule):
         return self.forward(batch['text']).argmax(dim=1)
 
     def configure_optimizers(self):
-        return {'optimizer': self.opt,
-                'lr_scheduler': self.lr_scheduler}
+        opt = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9,0.999), eps=1e-8)
+        return {'optimizer': opt,
+                'lr_scheduler': torch.optim.lr_scheduler.LinearLR(opt, 
+                                                                  start_factor = self.sch_start_factor, 
+                                                                  end_factor = 1, 
+                                                                  total_iters = self.sch_iters)}
 
 class NamedEntityMasker:
     '''

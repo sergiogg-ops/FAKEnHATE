@@ -18,4 +18,8 @@ Fake news detection in Spanish
 3. Add new data to the corpus:
     - Fake or unreliable news from https://hrashkin.github.io/factcheck.html, hoax labelled samples. This dataset doesn't contain any title so, to avoid biases, we have artifically generated them by using a Flan-T5 model.
     - Reliable news from https://osf.io/snpcg/ (LOCO dataset)
-    For both sources we have translated the text and headline with the English to Spanish Marian model(Helsinki-NLP/opus-mt-es-en). Then, we have progressively introduced folds of 2000 samples (50% each category) in our training dataset and analysed the results. Also, for each data source we have selected the most informative data. To get that score we have obtained the embedding of the text of each article and calculated the mean of all of them. Then we have given a probability of being selected proportional to the distance to that center. Thus we have selected the most different articles.
+    
+    For both sources we have translated the text and headline with the English to Spanish Marian model(Helsinki-NLP/opus-mt-es-en). Then, we have progressively introduced folds of samples (50% each category) in our training dataset and analysed the results. Also, for each data source we have selected the most informative data with the following approaches:
+    - Randomly select samples, maintaining a 50% of each category.
+    - Select the most different samples from each source: using the embeddings we gave more probability of being chosen to the samples more distant from the center of that dataset. We also maintained the 50% of each category.
+    - Select the samples that would make our dataset more diverse: using the embeddings we gave more probability of being chosen to the samples more distant to the center of our dataset. We also maintained the 50% of each category.

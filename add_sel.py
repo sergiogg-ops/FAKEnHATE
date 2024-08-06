@@ -43,10 +43,15 @@ def get_embeddings(texts, model, tokenizer, batch_size=8):
     return torch.cat(embs).numpy()
 fake_embs = get_embeddings(fake['text'].tolist(), model, tokenizer)
 true_embs = get_embeddings(true['text'].tolist(), model, tokenizer)
-fake_center = KMeans(n_clusters=1, random_state=seed).fit(fake_embs).cluster_centers_
-true_center = KMeans(n_clusters=1, random_state=seed).fit(true_embs).cluster_centers_
+base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
+#fake_center = np.mean(fake_embs)#KMeans(n_clusters=1, random_state=seed).fit(fake_embs).cluster_centers_
+fake_center = np.mean(base_embs[base['category'] == 'Fake'])
+#true_center = np.mean(true_embs)#KMeans(n_clusters=1, random_state=seed).fit(true_embs).cluster_centers_
+true_center = np.mean(base_embs[base['category'] == 'True'])
 fake_weights = np.linalg.norm(fake_embs - fake_center,axis=1)
 true_weights = np.linalg.norm(true_embs - true_center,axis=1)
+
+
 
 # SELECT N SAMPLES
 fake = fake.sample(N,weights=fake_weights)
@@ -56,8 +61,8 @@ true = true.sample(N,weights=true_weights)
 fake.rename(columns={'label':'category'}, inplace=True)
 fake['category'] = 'Fake'
 #true = true[true['subcorpus'] == 'mainstream']
-#true.rename(columns={'subcorpus':'category','txt':'text'}, inplace=True)
-#true['category'] = 'True'
+true.rename(columns={'subcorpus':'category'}, inplace=True)
+true['category'] = 'True'
 
 # LENGTHS BIAS CHECK
 lengths = [len(sample['text'].split()) for _,sample in fake.iterrows()]
