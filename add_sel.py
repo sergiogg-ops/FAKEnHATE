@@ -1,10 +1,10 @@
 from transformers import AutoTokenizer, RobertaModel
-from sklearn.cluster import KMeans
 from tqdm import tqdm
 import torch
 import pandas as pd
 import numpy as np
 import sys
+import re
 
 seed = 42
 torch.manual_seed(seed)
@@ -19,7 +19,8 @@ if len(sys.argv) != 2:
 N = int(sys.argv[1])
 
 fake = pd.read_json('data/pubreleasednewsfiles/full.json')
-true = pd.read_json('data/LOCO/subset_mainstream.json')
+#true = pd.read_json('data/LOCO/subset_mainstream.json')
+true = pd.read_json('data/LOCO/LOCO_sel_trans.json')
 base = pd.read_json('data/base/train.json')
 
 if len(fake) < N or len(true) < N:
@@ -43,19 +44,25 @@ def get_embeddings(texts, model, tokenizer, batch_size=8):
     return torch.cat(embs).numpy()
 fake_embs = get_embeddings(fake['text'].tolist(), model, tokenizer)
 true_embs = get_embeddings(true['text'].tolist(), model, tokenizer)
-base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
-#fake_center = np.mean(fake_embs)#KMeans(n_clusters=1, random_state=seed).fit(fake_embs).cluster_centers_
-fake_center = np.mean(base_embs[base['category'] == 'Fake'])
-#true_center = np.mean(true_embs)#KMeans(n_clusters=1, random_state=seed).fit(true_embs).cluster_centers_
-true_center = np.mean(base_embs[base['category'] == 'True'])
+#base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
+fake_center = np.mean(fake_embs)
+#fake_center = np.mean(base_embs[base['category'] == 'Fake'])
+true_center = np.mean(true_embs)
+#true_center = np.mean(base_embs[base['category'] == 'True'])
 fake_weights = np.linalg.norm(fake_embs - fake_center,axis=1)
 true_weights = np.linalg.norm(true_embs - true_center,axis=1)
 
-
-
 # SELECT N SAMPLES
-fake = fake.sample(N,weights=fake_weights)
-true = true.sample(N,weights=true_weights)
+def mask_entities(df):
+    df['text'] = df['text'].apply(lambda x: re.sub(r'\b(?:\+?1[-.\s]?)?(?:\(?[2-9]\d{2}\)?[-.\s]?){1,2}\d{4}\b','*PHONE*',x))
+    df['headline'] = df['headline'].apply(lambda x: re.sub(r'\b(?:\+?1[-.\s]?)?(?:\(?[2-9]\d{2}\)?[-.\s]?){1,2}\d{4}\b','*PHONE*',x))
+    df['text'] = df['text'].apply(lambda x: re.sub(r'\b(?:https?://)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b','*URL*',x))
+    df['headline'] = df['headline'].apply(lambda x: re.sub(r'\b(?:https?://)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b','*URL*',x))
+    df['text'] = df['text'].apply(lambda x: re.sub(r'\d+','*NUMBER*',x))
+    df['headline'] = df['headline'].apply(lambda x: re.sub(r'\d+','*NUMBER*',x))
+    return df
+fake = mask_entities(fake.sample(N,weights=fake_weights))
+true = mask_entities(true.sample(N,weights=true_weights))
 
 # ADJUST THE FIELD NAMES
 fake.rename(columns={'label':'category'}, inplace=True)

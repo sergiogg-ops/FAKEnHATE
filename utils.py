@@ -192,10 +192,13 @@ class LightningModel(L.LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9,0.999), eps=1e-8)
         return {'optimizer': opt,
-                'lr_scheduler': torch.optim.lr_scheduler.LinearLR(opt, 
+                'lr_scheduler': {'scheduler': torch.optim.lr_scheduler.LinearLR(opt, 
                                                                   start_factor = self.sch_start_factor, 
                                                                   end_factor = 1, 
-                                                                  total_iters = self.sch_iters)}
+                                                                  total_iters = self.sch_iters),
+                                        'monitor': 'f1_dev',
+                                        'interval': 'epoch',
+                                        'frequency': 1}}
 
 class NamedEntityMasker:
     '''

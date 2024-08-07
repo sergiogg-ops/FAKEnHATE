@@ -52,10 +52,10 @@ model = utils.LightningModel(model, tokenizer, lr=args.learning_rate, sch_start_
 save_dir = os.path.join(args.save_dir, args.experiment_name)
 callbacks = [L.pytorch.callbacks.ModelCheckpoint(dirpath=save_dir, 
                                                  filename=args.run_name + '-{step}', 
-                                                 monitor='f1_dev', mode='min', save_top_k=2),
+                                                 monitor='f1_dev', mode='max', save_top_k=2),
              L.pytorch.callbacks.EarlyStopping(monitor='loss_dev', mode='min', patience=3)]
 logger = L.pytorch.loggers.MLFlowLogger(save_dir='logs', experiment_name=args.experiment_name, run_name=args.run_name)
-trainer = L.Trainer(max_epochs=args.epochs,
+trainer = L.Trainer(max_steps=2500,
                     logger=logger,
                     callbacks=callbacks,
                     check_val_every_n_epoch=None,

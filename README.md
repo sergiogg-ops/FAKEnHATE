@@ -20,6 +20,6 @@ Fake news detection in Spanish
     - Reliable news from https://osf.io/snpcg/ (LOCO dataset)
     
     For both sources we have translated the text and headline with the English to Spanish Marian model(Helsinki-NLP/opus-mt-es-en). Then, we have progressively introduced folds of samples (50% each category) in our training dataset and analysed the results. Also, for each data source we have selected the most informative data with the following approaches:
-    - Randomly select samples, maintaining a 50% of each category.
-    - Select the most different samples from each source: using the embeddings we gave more probability of being chosen to the samples more distant from the center of that dataset. We also maintained the 50% of each category.
-    - Select the samples that would make our dataset more diverse: using the embeddings we gave more probability of being chosen to the samples more distant to the center of our dataset. We also maintained the 50% of each category.
+    - Randomly select samples.
+    - Select the most different samples from each source: using the embeddings we gave more probability of being chosen to the samples more distant from the center of that dataset.
+    - Select the samples that would make our dataset more diverse: using the embeddings we gave more probability of being chosen to the samples more distant to the center of our dataset.
