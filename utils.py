@@ -59,24 +59,38 @@ class FakeModel(torch.nn.Module):
         '''
         super().__init__()
         self.model = model
-        self.fc = torch.nn.Sequential(
+        self.head = torch.nn.Sequential(
             torch.nn.GELU(),
             torch.nn.Dropout(0.3),
             torch.nn.Linear(model.config.hidden_size, output_size))
+        self.noise = {'uniform':torch.rand_like,
+                      'normal':torch.randn_like}
 
-    def forward(self, x, attn_mask):
+    def forward(self, x, attn_mask, add_noise = False, alpha = 1):
         '''
         Make an inference with the model
 
         Parameters:
             x: torch.Tensor, input tensor
             attn_mask: torch.Tensor, attention mask
+            add_noise: bool or str, add noise to the embeddings
+                - False: no noise
+                - 'uniform': uniform noise
+                - 'normal': normal noise
         '''
-        return self.fc(self.model(x, attn_mask).pooler_output)
+        assert not add_noise or add_noise in self.noise.keys(), f'Noise type {add_noise} not supported'
+        embs = self.model.embeddigs(x, past_key_values_length=0)
+        if add_noise:
+            noise = self.noise[add_noise](embs) * alpha / (torch.sqrt(torch.sum(attn_mask, dim=1) * embs.size(-1)))
+            embs = embs + noise * attn_mask
+            model_output = self.model(inputs_embeds=embs, attention_mask=attn_mask)
+        else:
+            model_output = self.model(x, attn_mask)
+        return self.head(model_output.pooler_output)
 
 class LightningModel(L.LightningModule):
     '''
-    Lightning module envelope for fake news classification
+    Envelope lightning module for fake news classification
     '''
     def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10):
         '''
