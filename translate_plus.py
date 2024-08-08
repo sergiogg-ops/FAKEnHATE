@@ -42,7 +42,7 @@ def main():
 
     mode = 'a' if args.append else 'w'
     filename = args.output if args.output else args.file
-    data.to_json(filename, orient='records', mode=mode)
+    data.to_json(filename, orient='records', lines=True, mode=mode)
 
 if __name__ == '__main__':
     main()
