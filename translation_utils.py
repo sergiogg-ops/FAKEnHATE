@@ -79,6 +79,10 @@ def split_texts(data, field = 'message_description'):
     '''
     sents, mask = [], []
     for _, sample in data.iterrows():
+        if not sample[field]:
+            sents.append('')
+            mask.append(-1)
+            continue
         curr_sents = sent_tokenize(sample[field])
         if len(curr_sents) == 0:
             sents.append('')

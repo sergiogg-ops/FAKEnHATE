@@ -40,9 +40,11 @@ def main():
         translation = np.array(translation,dtype=object)
         data[args.output_field] = translation
 
-    mode = 'a' if args.append else 'w'
+    if args.append:
+        prev = pd.read_json(args.output) if args.output else pd.read_json(args.file)
+        data = pd.concat([prev, data], ignore_index=True)
     filename = args.output if args.output else args.file
-    data.to_json(filename, orient='records', lines=True, mode=mode)
+    data.to_json(filename, orient='records')
 
 if __name__ == '__main__':
     main()
