@@ -32,8 +32,6 @@ def main():
                                         device=0,
                                         batch_size=16,
                                         num_workers=num_workers)
-
-    translation[args.output_field] = data[args.input_field]
     for src, tgt in zip(args.lang[:-1], args.lang[1:]):
         translation = utils.translate(translator, data, src, tgt,field=args.output_field)
         for i in range(len(translation)):

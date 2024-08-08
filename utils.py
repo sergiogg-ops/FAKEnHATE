@@ -54,7 +54,7 @@ class FakeModel(torch.nn.Module):
     def __init__(self, model, output_size=2):
         '''
         Parameters:
-            model: transformers model, pre-trained model
+            model: transformers model, pre-trained BERT like model
             output_size: int, number of classes
         '''
         super().__init__()

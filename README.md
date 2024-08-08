@@ -6,7 +6,8 @@ Fake news detection in Spanish
     - Batch size: 8
     - Learning rate scheduler: linear (0.7-1)
 2. To mask named entities:
-    - The spanish entity recognizer has identified four types of NE: 
+    - The original dataset had already masked numbers, phones and URLs.
+    - The spanish spacy entity recognizer has identified four types of NE: 
         - person (PER): 12099
         - organization (ORG): 5482
         - places (LOC): 12438
