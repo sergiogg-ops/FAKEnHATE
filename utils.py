@@ -56,6 +56,10 @@ class FakeModel(torch.nn.Module):
         Parameters:
             model: transformers model, pre-trained BERT like model
             output_size: int, number of classes
+            add_noise: str or bool, type of noise for the embeddings
+                - False: no noise will be applied
+                - uniform: uniform noise
+                - normal: gaussian noise
         '''
         super().__init__()
         self.model = model
@@ -75,10 +79,7 @@ class FakeModel(torch.nn.Module):
         Parameters:
             x: torch.Tensor, input tensor
             attn_mask: torch.Tensor, attention mask
-            add_noise: bool or str, add noise to the embeddings
-                - False: no noise
-                - 'uniform': uniform noise
-                - 'normal': normal noise
+            alpha: int, scaling factor for the noisy embeddings
         '''
         if self.add_noise and self.noise:
             embs = self.model.embeddings(x, past_key_values_length=0)
@@ -111,8 +112,10 @@ class LightningModel(L.LightningModule):
         Parameters:
             model: FakeModel, model for fake news classification
             tokenizer: transformers tokenizer, tokenizer for the model
-            opt: torch.optim.Optimizer, optimizer
-            lr_scheduler: torch.optim.lr_scheduler._LRScheduler, learning rate scheduler
+            lr: float, learning rate
+            sch_start_factor: start factor for the linear learning rate scheduler
+            sch_iters: number of iteration for the linear learning rate scheduler
+            alpha: scaling factor of the noisy embeddings to apply overt the model
         '''
         super().__init__()
         self.model = model
