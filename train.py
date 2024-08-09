@@ -18,7 +18,9 @@ parser.add_argument('-exp','--experiment_name', default='', help='Name of the se
 parser.add_argument('-run','--run_name', type=str, default='run', help='Name of the run')
 parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask named entities, if no arguments are given all entities are masked')
 parser.add_argument('-lr_sch','--lr_scheduler', default=0.7, type=float, help='Start factor for the linear scheduler')
-parser.add_argument('-v','--verbose', action='store_true', help='Verbose mode')
+parser.add_argument('-no','--noise', default=False, choices=['uniform','normal'], help='Use noisy embeddings')
+parser.add_argument('-alpha','--alpha',type=float, default=0, help='Alpha paratemetr to scale the noise in the embeddings')
+parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
 
 if args.mask_ner or args.mask_ner == []:
@@ -32,7 +34,7 @@ if args.mask_ner == [] and args.verbose:
         print('Todas las entidades serán enmascaradas')
 
 tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-model = utils.FakeModel(RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne"))
+model = utils.FakeModel(RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne"),add_noise=args.noise)
 
 masker = utils.NamedEntityMasker(args.mask_ner) if args.mask_ner else None
 
@@ -48,7 +50,7 @@ dev_loader = torch.utils.data.DataLoader(dev_set, batch_size=args.batch_size, sh
 #optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
 #lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
 
-model = utils.LightningModel(model, tokenizer, lr=args.learning_rate, sch_start_factor=args.lr_scheduler, sch_iters=args.epochs)
+model = utils.LightningModel(model, tokenizer, lr=args.learning_rate, sch_start_factor=args.lr_scheduler, sch_iters=args.epochs, alpha=args.alpha)
 save_dir = os.path.join(args.save_dir, args.experiment_name)
 callbacks = [L.pytorch.callbacks.ModelCheckpoint(dirpath=save_dir, 
                                                  filename=args.run_name + '-{step}', 
@@ -59,7 +61,7 @@ trainer = L.Trainer(max_steps=2500,
                     logger=logger,
                     callbacks=callbacks,
                     check_val_every_n_epoch=None,
-                    val_check_interval=123)
+                    val_check_interval=124)
 
 trainer.fit(model, train_loader, dev_loader)
 #trainer.test(model, test_loader)

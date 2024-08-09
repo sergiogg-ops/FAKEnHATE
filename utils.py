@@ -51,7 +51,7 @@ class FakeModel(torch.nn.Module):
     '''
     Model for fake news classification
     '''
-    def __init__(self, model, output_size=2):
+    def __init__(self, model, output_size=2, add_noise=False):
         '''
         Parameters:
             model: transformers model, pre-trained BERT like model
@@ -63,10 +63,12 @@ class FakeModel(torch.nn.Module):
             torch.nn.GELU(),
             torch.nn.Dropout(0.3),
             torch.nn.Linear(model.config.hidden_size, output_size))
+        self.add_noise = bool(add_noise)
         self.noise = {'uniform':torch.rand_like,
-                      'normal':torch.randn_like}
+                    'normal':torch.randn_like,
+                    False:None}[add_noise]
 
-    def forward(self, x, attn_mask, add_noise = False, alpha = 1):
+    def forward(self, x, attn_mask, alpha = 1):
         '''
         Make an inference with the model
 
@@ -78,21 +80,33 @@ class FakeModel(torch.nn.Module):
                 - 'uniform': uniform noise
                 - 'normal': normal noise
         '''
-        assert not add_noise or add_noise in self.noise.keys(), f'Noise type {add_noise} not supported'
-        embs = self.model.embeddigs(x, past_key_values_length=0)
-        if add_noise:
-            noise = self.noise[add_noise](embs) * alpha / (torch.sqrt(torch.sum(attn_mask, dim=1) * embs.size(-1)))
-            embs = embs + noise * attn_mask
+        if self.add_noise and self.noise:
+            embs = self.model.embeddings(x, past_key_values_length=0)
+            scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
+            noise = self.noise(embs) * scale
+            embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
             model_output = self.model(inputs_embeds=embs, attention_mask=attn_mask)
         else:
             model_output = self.model(x, attn_mask)
         return self.head(model_output.pooler_output)
+    
+    def train(self, mode = True):
+        if not isinstance(mode, bool):
+            raise ValueError("training mode is expected to be boolean")
+        self.training = mode
+        for module in self.children():
+            module.train(mode)
+        self.add_noise = mode
+        return self
+    
+    def eval(self):
+        return self.train(False)
 
 class LightningModel(L.LightningModule):
     '''
     Envelope lightning module for fake news classification
     '''
-    def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10):
+    def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10, alpha = 1):
         '''
         Parameters:
             model: FakeModel, model for fake news classification
@@ -106,7 +120,8 @@ class LightningModel(L.LightningModule):
         self.lr = lr
         self.sch_start_factor = sch_start_factor
         self.sch_iters = sch_iters
-        self.save_hyperparameters('lr', 'sch_start_factor', 'sch_iters')  
+        self.alpha = alpha
+        self.save_hyperparameters('lr', 'sch_start_factor', 'sch_iters', 'alpha')  
 
     def forward(self, batch):
         '''
@@ -119,7 +134,7 @@ class LightningModel(L.LightningModule):
             torch.Tensor, output of the model
         '''
         batch = self.tokenizer(batch, return_tensors='pt', padding=True, truncation=True, max_length=512)
-        return self.model(batch['input_ids'].to(self.device), batch['attention_mask'].to(self.device))
+        return self.model(batch['input_ids'].to(self.device), batch['attention_mask'].to(self.device), alpha = self.alpha)
 
     def training_step(self, batch, batch_idx):
         '''
@@ -132,6 +147,7 @@ class LightningModel(L.LightningModule):
         Returns:
             torch.Tensor, loss
         '''
+        self.model.train()
         output = self.forward(batch['text'])
         loss = torch.nn.functional.cross_entropy(output, batch['label'].to(self.device))
         self.log('loss_train', loss)
@@ -191,6 +207,7 @@ class LightningModel(L.LightningModule):
             torch.Tensor, loss
             dict, classification report
         '''
+        self.model.eval()
         output = self.forward(batch['text'])
         loss = torch.nn.functional.cross_entropy(output, batch['label'].to(self.device))
         report = classification_report(batch['label'].to('cpu'), 
