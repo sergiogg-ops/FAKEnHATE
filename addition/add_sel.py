@@ -18,10 +18,10 @@ if len(sys.argv) != 2:
     exit()
 N = int(sys.argv[1])
 
-fake = pd.read_json('data/pubreleasednewsfiles/full.json')
+fake = pd.read_json('../data/pubreleasednewsfiles/full.json')
 #true = pd.read_json('data/LOCO/subset_mainstream.json')
-true = pd.read_json('data/LOCO/LOCO_sel_trans.json')
-base = pd.read_json('data/base/train.json')
+true = pd.read_json('../data/LOCO/LOCO_sel_trans.json')
+base = pd.read_json('../data/base/train.json')
 
 if len(fake) < N or len(true) < N:
     # max 6942
@@ -78,4 +78,4 @@ print(np.mean(np.array(true['txt_nwords'])),np.std(np.array(true['txt_nwords']))
 
 # SAVE DATA
 base = pd.concat((base, fake, true))
-base.to_json('data/ext_data/train.json',orient='records')
+base.to_json('../data/ext_data/train.json',orient='records')

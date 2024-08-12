@@ -68,7 +68,7 @@ class FakeModel(torch.nn.Module):
             torch.nn.Dropout(0.3),
             torch.nn.Linear(model.config.hidden_size, output_size))
         self.add_noise = bool(add_noise)
-        self.noise = {'uniform':torch.rand_like,
+        self.noise = {'uniform':rand_like,
                     'normal':torch.randn_like,
                     False:None}[add_noise]
 
@@ -270,3 +270,6 @@ def seed_everything(seed=42):
     torch.cuda.manual_seed(seed)
     np.random.seed(seed)
     L.seed_everything(seed)
+
+def rand_like(x):
+    return torch.rand_like(x) * 2 - 1

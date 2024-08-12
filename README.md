@@ -25,5 +25,17 @@ Fake news detection in Spanish
     - Select the most different samples from each source: using the embeddings we gave more probability of being chosen to the samples more distant from the center of that dataset.
     - Select the samples that would make our dataset more diverse: using the embeddings we gave more probability of being chosen to the samples more distant to the center of our dataset.
 4. Apply backtranslation to the original corpus:
-    - Pipe1: es-de-es
-    - Pipe2: es-zh-es
+    | ID     | Pipe        |
+    |--------|-------------|
+    | pipe0  | es-de-zh-es |
+    | pipe1  | es-zh-de-es |
+    | pipe2  | es-hi-ko-es |
+    | pipe3  | /es-af-fa-es |
+    | pipe4  | es-ja-fr-es |
+    | pipe5  | /es-sv-zh-es |
+    | pipe6  | es-fi-el-es |
+    | pipe7  | /es-ru-ar-es |
+    | pipe8  | es-fr-ko-es |
+    | pipe9  | es-el-af-es |
+    | pipe10 | /es-ru-hi-es |
+    | pipe11 | es-ko-af-es |

@@ -18,7 +18,7 @@ if len(sys.argv) != 2:
     exit()
 N = int(sys.argv[1])
 
-true = pd.read_json('data/LOCO/LOCO.json')
+true = pd.read_json('../data/LOCO/LOCO.json')
 true = true[true['subcorpus'] == 'mainstream']
 
 # PONDERATION
@@ -47,4 +47,4 @@ def get_subset(data, n, model, tokenizer, seed=42, batch_size=8):
 true = get_subset(true, N, model, tokenizer, 50)
 
 # SAVE DATA
-true.to_json('data/LOCO/LOCO_selection.json',orient='records')
+true.to_json('../data/LOCO/LOCO_selection.json',orient='records')
