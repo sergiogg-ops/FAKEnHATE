@@ -30,7 +30,7 @@ Fake news detection in Spanish
     | pipe0  | es-de-zh-es |
     | pipe1  | es-zh-de-es |
     | pipe2  | es-hi-ko-es |
-    | pipe3  | /es-af-fa-es |
+    | pipe3  | es-af-fa-es |
     | pipe4  | es-ja-fr-es |
     | pipe5  | /es-sv-zh-es |
     | pipe6  | es-fi-el-es |
@@ -39,3 +39,6 @@ Fake news detection in Spanish
     | pipe9  | es-el-af-es |
     | pipe10 | /es-ru-hi-es |
     | pipe11 | es-ko-af-es |
+5. Use noisy embeddings to train the model:
+    - Uniform random noise with scale factor of 10 (20)
+    - Gaussian random noise with scale factor of 0.05

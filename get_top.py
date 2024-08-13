@@ -26,13 +26,15 @@ except:
     print(list(exp2id.keys()))
     exit(1)
 results = []
+steps = []
 names = []
 
 for run in runs:
     try:
         with open(os.path.join(args.dir,exp2id[args.experiment], run, 'metrics', args.metric)) as f:
-            data = [float(l.split()[1]) for l in f]
-        results.extend(data)
+            data = [l.split() for l in f]
+            results += [float(l[1]) for l in data]
+            steps += [int(l[2]) for l in data]
         with open(os.path.join(args.dir,exp2id[args.experiment], run, 'meta.yaml')) as f:
             n = yaml.safe_load(f)['run_name']
         names.extend([n]*len(data))
@@ -42,5 +44,5 @@ for run in runs:
 idxs = np.argsort(results)
 if args.mode == 'max':
     idxs = idxs[::-1]
-for i in idxs[:args.top]:
-    print(f'{names[i]}: {results[i]}')
+for n,i in enumerate(idxs[:args.top]):
+    print(f'{n+1}º{names[i]}:\t{results[i]}\t{steps[i]}')

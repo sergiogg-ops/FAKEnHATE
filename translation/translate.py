@@ -37,7 +37,7 @@ def main():
         translator = pipeline(model=model,
                                 tokenizer=tokenizer,
                                 device=0,
-                                batch_size=16,
+                                batch_size=args.batch_size,
                                 num_workers=num_workers)
         translation = utils.translate(translator, data, src, tgt,field=args.output_field)
         for i in range(len(translation)):

@@ -14,7 +14,7 @@ parser.add_argument('save_dir', help='Directory to save the model')
 parser.add_argument('-e','--epochs', type=int, default=10, help='Number of epochs to train')
 parser.add_argument('-b','--batch_size', type=int, default=8, help='Batch size')
 parser.add_argument('-lr','--learning_rate', type=float, default=2e-5, help='Learning rate')
-parser.add_argument('-exp','--experiment_name', default='', help='Name of the series of runs')
+parser.add_argument('-exp','--experiment_name', default='baseline', help='Name of the series of runs')
 parser.add_argument('-run','--run_name', type=str, default='run', help='Name of the run')
 parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask named entities, if no arguments are given all entities are masked')
 parser.add_argument('-lr_sch','--lr_scheduler', default=0.7, type=float, help='Start factor for the linear scheduler')
@@ -22,13 +22,6 @@ parser.add_argument('-no','--noise', default=False, choices=['uniform','normal']
 parser.add_argument('-alpha','--alpha',type=float, default=0, help='Alpha paratemetr to scale the noise in the embeddings')
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
-
-if args.mask_ner or args.mask_ner == []:
-    args.experiment_name += 'ner_'
-    if args.verbose:
-        print('Entidades enmascaradas:', args.mask_ner)
-if args.experiment_name == '':
-    args.experiment_name = 'baseline'
 
 if args.mask_ner == [] and args.verbose:
         print('Todas las entidades serán enmascaradas')
@@ -61,7 +54,7 @@ trainer = L.Trainer(max_steps=2500,
                     logger=logger,
                     callbacks=callbacks,
                     check_val_every_n_epoch=None,
-                    val_check_interval=124)
+                    val_check_interval=int(987/args.batch_size+1))
 
 trainer.fit(model, train_loader, dev_loader)
 #trainer.test(model, test_loader)

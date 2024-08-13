@@ -18,10 +18,10 @@ if len(sys.argv) != 2:
     exit()
 N = int(sys.argv[1])
 
-fake = pd.read_json('../data/pubreleasednewsfiles/full.json')
+fake = pd.read_json('data/pubreleasednewsfiles/full.json')
 #true = pd.read_json('data/LOCO/subset_mainstream.json')
-true = pd.read_json('../data/LOCO/LOCO_sel_trans.json')
-base = pd.read_json('../data/base/train.json')
+true = pd.read_json('data/LOCO/LOCO_sel_trans.json')
+base = pd.read_json('data/base/train.json')
 
 if len(fake) < N or len(true) < N:
     # max 6942
@@ -44,11 +44,11 @@ def get_embeddings(texts, model, tokenizer, batch_size=8):
     return torch.cat(embs).numpy()
 fake_embs = get_embeddings(fake['text'].tolist(), model, tokenizer)
 true_embs = get_embeddings(true['text'].tolist(), model, tokenizer)
-#base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
-fake_center = np.mean(fake_embs)
-#fake_center = np.mean(base_embs[base['category'] == 'Fake'])
-true_center = np.mean(true_embs)
-#true_center = np.mean(base_embs[base['category'] == 'True'])
+base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
+#fake_center = np.mean(fake_embs)
+fake_center = np.mean(base_embs[base['category'] == 'Fake'])
+#true_center = np.mean(true_embs)
+true_center = np.mean(base_embs[base['category'] == 'True'])
 fake_weights = np.linalg.norm(fake_embs - fake_center,axis=1)
 true_weights = np.linalg.norm(true_embs - true_center,axis=1)
 
@@ -78,4 +78,4 @@ print(np.mean(np.array(true['txt_nwords'])),np.std(np.array(true['txt_nwords']))
 
 # SAVE DATA
 base = pd.concat((base, fake, true))
-base.to_json('../data/ext_data/train.json',orient='records')
+base.to_json('data/ext_data/train.json',orient='records')
