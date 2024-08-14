@@ -30,7 +30,7 @@ if args.mask_ner == [] and args.verbose:
 tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 if args.full_length:
-        model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise)
+        model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500)
 else:
         model = utils.FakeModel(model, tokenizer=tokenizer, add_noise=args.noise)
 
@@ -55,11 +55,12 @@ callbacks = [L.pytorch.callbacks.ModelCheckpoint(dirpath=save_dir,
                                                  monitor='f1_dev', mode='max', save_top_k=2),
              L.pytorch.callbacks.EarlyStopping(monitor='loss_dev', mode='min', patience=3)]
 logger = L.pytorch.loggers.MLFlowLogger(save_dir='logs', experiment_name=args.experiment_name, run_name=args.run_name)
-trainer = L.Trainer(max_steps=2500,
+trainer = L.Trainer(max_steps=int(987/args.batch_size+1)*25,
                     logger=logger,
                     callbacks=callbacks,
                     check_val_every_n_epoch=None,
                     val_check_interval=int(987/args.batch_size+1))
+                    #accumulate_grad_batches=8)
 
 trainer.fit(model, train_loader, dev_loader)
 #trainer.test(model, test_loader)

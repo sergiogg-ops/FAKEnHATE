@@ -106,7 +106,7 @@ class FakeModel(torch.nn.Module):
         return self
 
 class FakeBELT(FakeModel):
-    def __init__(self, model, tokenizer, output_size=2, add_noise=False, pool = 'max', step = 0.75):
+    def __init__(self, model, tokenizer, output_size=2, add_noise=False, pool = 'max', step = 0.75, max_length = 100000):
         '''
         Parameters:
             model: transformers model, pre-trained BERT like model
@@ -118,6 +118,7 @@ class FakeBELT(FakeModel):
         '''
         super().__init__(model,tokenizer,output_size,add_noise)
         self.model.pooler = torch.nn.Sequential(
+            torch.nn.LayerNorm(model.config.hidden_size),
             torch.nn.Linear(model.config.hidden_size, model.config.hidden_size),
             torch.nn.Tanh(),
         )
@@ -126,6 +127,7 @@ class FakeBELT(FakeModel):
         self.cls = tokenizer.convert_tokens_to_ids(tokenizer.cls_token)
         self.eos = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
         self.pad = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+        self.max_length = max_length
     '''
     Model for fake news classification using all the text
     '''
@@ -141,13 +143,13 @@ class FakeBELT(FakeModel):
         CHUNK_SIZE = self.tokenizer.model_max_length - 1
         STEP = int(CHUNK_SIZE * self.step)
         # TOKENIZAR
-        batch = self.tokenizer(batch, return_tensors='pt', padding=True)
+        batch = self.tokenizer(batch, return_tensors='pt', padding=True, max_length=self.max_length, truncation=True)
         x, attn_mask = batch['input_ids'].to(self.model.device), batch['attention_mask'].to(self.model.device)
         x, attn_mask = x[:,1:], attn_mask[:,1:] # eliminar cls
         max_len = x.shape[-1]
         lengths = torch.sum(attn_mask, dim=1)
         # PARTIR Y CHUNKS
-        num_chunks = ceil((max_len - CHUNK_SIZE) / STEP)
+        num_chunks = max(ceil((max_len - CHUNK_SIZE) / STEP),0)
         padding = num_chunks * STEP + CHUNK_SIZE - max_len
         x = torch.cat([x, torch.ones(x.shape[0],padding, dtype=torch.long).to(x.device) * self.pad], dim=1)
         x = rearrange(x.unfold(1,CHUNK_SIZE,STEP), 'b n l -> (b n) l')
@@ -295,7 +297,6 @@ class LightningModel(L.LightningModule):
         self.model.eval()
         output = self.forward(batch['text'])
         loss = torch.nn.functional.cross_entropy(output, batch['label'].to(self.device))
-        #output = output.unsqueeze(0) if len(output.shape) == 1 else output
         report = classification_report(batch['label'].to('cpu'), 
                                        output.argmax(dim=1).to('cpu'), 
                                        target_names=['Fake','True'], 
