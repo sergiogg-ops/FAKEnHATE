@@ -1,6 +1,8 @@
 from torch.utils.data import Dataset
 from sklearn.metrics import classification_report
+from einops import rearrange
 from tqdm import tqdm
+from math import ceil
 import pandas as pd
 import lightning as L
 import numpy as np
@@ -51,7 +53,7 @@ class FakeModel(torch.nn.Module):
     '''
     Model for fake news classification
     '''
-    def __init__(self, model, output_size=2, add_noise=False):
+    def __init__(self, model, tokenizer, output_size=2, add_noise=False):
         '''
         Parameters:
             model: transformers model, pre-trained BERT like model
@@ -63,6 +65,7 @@ class FakeModel(torch.nn.Module):
         '''
         super().__init__()
         self.model = model
+        self.tokenizer = tokenizer
         self.head = torch.nn.Sequential(
             torch.nn.GELU(),
             torch.nn.Dropout(0.3),
@@ -72,7 +75,7 @@ class FakeModel(torch.nn.Module):
                     'normal':torch.randn_like,
                     False:None}[add_noise]
 
-    def forward(self, x, attn_mask, alpha = 1):
+    def forward(self, batch, alpha = 1):
         '''
         Make an inference with the model
 
@@ -81,6 +84,8 @@ class FakeModel(torch.nn.Module):
             attn_mask: torch.Tensor, attention mask
             alpha: int, scaling factor for the noisy embeddings
         '''
+        batch = self.tokenizer(batch, return_tensors='pt', padding=True, truncation=True, max_length=self.tokenizer.model_max_length)
+        x, attn_mask = batch['input_ids'].to(self.model.device), batch['attention_mask'].to(self.model.device)
         if self.add_noise and self.noise:
             embs = self.model.embeddings(x, past_key_values_length=0)
             scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
@@ -99,10 +104,86 @@ class FakeModel(torch.nn.Module):
             module.train(mode)
         self.add_noise = mode
         return self
-    
-    def eval(self):
-        return self.train(False)
 
+class FakeBELT(FakeModel):
+    def __init__(self, model, tokenizer, output_size=2, add_noise=False, pool = 'max', step = 0.75):
+        '''
+        Parameters:
+            model: transformers model, pre-trained BERT like model
+            output_size: int, number of classes
+            add_noise: str or bool, type of noise for the embeddings
+                - False: no noise will be applied
+                - uniform: uniform noise
+                - normal: gaussian noise
+        '''
+        super().__init__(model,tokenizer,output_size,add_noise)
+        self.model.pooler = torch.nn.Sequential(
+            torch.nn.Linear(model.config.hidden_size, model.config.hidden_size),
+            torch.nn.Tanh(),
+        )
+        self.pool_strategy = pool
+        self.step = step
+        self.cls = tokenizer.convert_tokens_to_ids(tokenizer.cls_token)
+        self.eos = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
+        self.pad = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+    '''
+    Model for fake news classification using all the text
+    '''
+    def forward(self, batch, alpha = 1):
+        '''
+        Make an inference with the model
+
+        Parameters:
+            x: torch.Tensor, input tensor
+            attn_mask: torch.Tensor, attention mask
+            alpha: int, scaling factor for the noisy embeddings
+        '''
+        CHUNK_SIZE = self.tokenizer.model_max_length - 1
+        STEP = int(CHUNK_SIZE * self.step)
+        # TOKENIZAR
+        batch = self.tokenizer(batch, return_tensors='pt', padding=True)
+        x, attn_mask = batch['input_ids'].to(self.model.device), batch['attention_mask'].to(self.model.device)
+        x, attn_mask = x[:,1:], attn_mask[:,1:] # eliminar cls
+        max_len = x.shape[-1]
+        lengths = torch.sum(attn_mask, dim=1)
+        # PARTIR Y CHUNKS
+        num_chunks = ceil((max_len - CHUNK_SIZE) / STEP)
+        padding = num_chunks * STEP + CHUNK_SIZE - max_len
+        x = torch.cat([x, torch.ones(x.shape[0],padding, dtype=torch.long).to(x.device) * self.pad], dim=1)
+        x = rearrange(x.unfold(1,CHUNK_SIZE,STEP), 'b n l -> (b n) l')
+        attn_mask = torch.cat([attn_mask, torch.ones(attn_mask.shape[0],padding,dtype=torch.long).to(attn_mask.device)], dim=1)
+        attn_mask = rearrange(attn_mask.unfold(1,CHUNK_SIZE,STEP), 'b n l -> (b n) l')
+        # CLS Y EOS
+        x = torch.cat([torch.ones(x.shape[0],1,dtype=torch.long).to(x.device) * self.cls, x], dim=1)
+        attn_mask = torch.cat([torch.ones(attn_mask.shape[0],1,dtype=torch.long).to(attn_mask.device), attn_mask], dim=1)
+        x[:,lengths%CHUNK_SIZE+1] = self.eos
+        attn_mask[:,lengths%CHUNK_SIZE+1] = 1
+        # EMBEDDINGS
+        embs = self.model.embeddings(x)
+        if self.add_noise and self.noise:
+            scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
+            noise = self.noise(embs) * scale
+            embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
+        # FORWARD
+        hidden_state = self.model(x, attention_mask=attn_mask).last_hidden_state
+        hidden_state *= torch.unsqueeze(attn_mask,-1).expand(-1,-1,hidden_state.size(-1))
+        # POOLING
+        hidden_state = rearrange(hidden_state[:,0,:], '(b n) h -> b n h', n = num_chunks + 1)
+        hidden_state = self.pool(hidden_state, lengths, dim=1)
+        model_output = self.model.pooler(hidden_state)
+        # CLASIFICACION
+        return self.head(model_output)
+
+    def pool(self, x, lengths, dim = 1):
+        if self.pool_strategy == 'max':
+            return torch.max(x,dim=dim).values
+        elif self.pool_strategy == 'mean':
+            return torch.sum(x,dim=dim) / lengths
+        elif self.pool_strategy == 'sum':
+            return torch.sum(x,dim=dim)
+        else:
+            raise ValueError(f'Unknown pooling strategy: {self.pool_strategy}')
+        
 class LightningModel(L.LightningModule):
     '''
     Envelope lightning module for fake news classification
@@ -136,8 +217,9 @@ class LightningModel(L.LightningModule):
         Returns:
             torch.Tensor, output of the model
         '''
-        batch = self.tokenizer(batch, return_tensors='pt', padding=True, truncation=True, max_length=512)
-        return self.model(batch['input_ids'].to(self.device), batch['attention_mask'].to(self.device), alpha = self.alpha)
+        #batch = self.tokenizer(batch, return_tensors='pt', padding=True, truncation=True, max_length=512)
+        #return self.model(batch['input_ids'].to(self.device), batch['attention_mask'].to(self.device), alpha = self.alpha)
+        return self.model(batch, alpha = self.alpha)
 
     def training_step(self, batch, batch_idx):
         '''
@@ -213,11 +295,13 @@ class LightningModel(L.LightningModule):
         self.model.eval()
         output = self.forward(batch['text'])
         loss = torch.nn.functional.cross_entropy(output, batch['label'].to(self.device))
+        #output = output.unsqueeze(0) if len(output.shape) == 1 else output
         report = classification_report(batch['label'].to('cpu'), 
                                        output.argmax(dim=1).to('cpu'), 
                                        target_names=['Fake','True'], 
                                        output_dict=True,
-                                       zero_division=0)
+                                       zero_division=0,
+                                       labels=[0,1])
         return loss, report
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):

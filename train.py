@@ -20,6 +20,7 @@ parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask named entities, i
 parser.add_argument('-lr_sch','--lr_scheduler', default=0.7, type=float, help='Start factor for the linear scheduler')
 parser.add_argument('-no','--noise', default=False, choices=['uniform','normal'], help='Use noisy embeddings')
 parser.add_argument('-alpha','--alpha',type=float, default=0, help='Alpha paratemetr to scale the noise in the embeddings')
+parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
 
@@ -27,7 +28,11 @@ if args.mask_ner == [] and args.verbose:
         print('Todas las entidades serán enmascaradas')
 
 tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-model = utils.FakeModel(RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne"),add_noise=args.noise)
+model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+if args.full_length:
+        model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise)
+else:
+        model = utils.FakeModel(model, tokenizer=tokenizer, add_noise=args.noise)
 
 masker = utils.NamedEntityMasker(args.mask_ner) if args.mask_ner else None
 
