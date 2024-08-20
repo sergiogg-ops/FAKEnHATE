@@ -21,6 +21,9 @@ parser.add_argument('-lr_sch','--lr_scheduler', default=0.7, type=float, help='S
 parser.add_argument('-no','--noise', default=False, choices=['uniform','normal'], help='Use noisy embeddings')
 parser.add_argument('-alpha','--alpha',type=float, default=0, help='Alpha paratemetr to scale the noise in the embeddings')
 parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
+parser.add_argument('-pool','--pool_strategy', default='max',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
+parser.add_argument('-s','--stride',type=float, default=0.75,help='Stride for the full length proccessing approach')
+parser.add_argument('-unfreeze','--unfreeze_epoch',type=int,default=0,help='When using the full length apprach, the epoch in which the params of the BERT type model will unfreeze. If not especified the params will be unfrozen from the start.')
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
 
@@ -30,7 +33,7 @@ if args.mask_ner == [] and args.verbose:
 tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 if args.full_length:
-        model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500)
+        model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500, pool=args.pool_strategy, step=args.stride)
 else:
         model = utils.FakeModel(model, tokenizer=tokenizer, add_noise=args.noise)
 
@@ -48,7 +51,12 @@ dev_loader = torch.utils.data.DataLoader(dev_set, batch_size=args.batch_size, sh
 #optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
 #lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
 
-model = utils.LightningModel(model, tokenizer, lr=args.learning_rate, sch_start_factor=args.lr_scheduler, sch_iters=args.epochs, alpha=args.alpha)
+model = utils.LightningModel(model, tokenizer, 
+                             lr=args.learning_rate, 
+                             sch_start_factor=args.lr_scheduler, 
+                             sch_iters=args.epochs, 
+                             alpha=args.alpha,
+                             unfreeze=args.unfreeze_epoch)
 save_dir = os.path.join(args.save_dir, args.experiment_name)
 callbacks = [L.pytorch.callbacks.ModelCheckpoint(dirpath=save_dir, 
                                                  filename=args.run_name + '-{step}', 
@@ -59,8 +67,8 @@ trainer = L.Trainer(max_steps=int(987/args.batch_size+1)*25,
                     logger=logger,
                     callbacks=callbacks,
                     check_val_every_n_epoch=None,
-                    val_check_interval=int(987/args.batch_size+1))
-                    #accumulate_grad_batches=8)
+                    val_check_interval=int(987/args.batch_size+1),
+                    accumulate_grad_batches=1)
 
 trainer.fit(model, train_loader, dev_loader)
 #trainer.test(model, test_loader)

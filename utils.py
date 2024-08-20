@@ -64,7 +64,7 @@ class FakeModel(torch.nn.Module):
                 - normal: gaussian noise
         '''
         super().__init__()
-        self.model = model
+        self.extractor = model
         self.tokenizer = tokenizer
         self.head = torch.nn.Sequential(
             torch.nn.GELU(),
@@ -85,15 +85,15 @@ class FakeModel(torch.nn.Module):
             alpha: int, scaling factor for the noisy embeddings
         '''
         batch = self.tokenizer(batch, return_tensors='pt', padding=True, truncation=True, max_length=self.tokenizer.model_max_length)
-        x, attn_mask = batch['input_ids'].to(self.model.device), batch['attention_mask'].to(self.model.device)
+        x, attn_mask = batch['input_ids'].to(self.extractor.device), batch['attention_mask'].to(self.extractor.device)
         if self.add_noise and self.noise:
-            embs = self.model.embeddings(x, past_key_values_length=0)
+            embs = self.extractor.embeddings(x, past_key_values_length=0)
             scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
             noise = self.noise(embs) * scale
             embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
-            model_output = self.model(inputs_embeds=embs, attention_mask=attn_mask)
+            model_output = self.extractor(inputs_embeds=embs, attention_mask=attn_mask)
         else:
-            model_output = self.model(x, attn_mask)
+            model_output = self.extractor(x, attn_mask)
         return self.head(model_output.pooler_output)
     
     def train(self, mode = True):
@@ -117,12 +117,18 @@ class FakeBELT(FakeModel):
                 - normal: gaussian noise
         '''
         super().__init__(model,tokenizer,output_size,add_noise)
-        self.model.pooler = torch.nn.Sequential(
-            torch.nn.LayerNorm(model.config.hidden_size),
-            torch.nn.Linear(model.config.hidden_size, model.config.hidden_size),
-            torch.nn.Tanh(),
-        )
         self.pool_strategy = pool
+        if pool == 'rnn':
+            self.rnn = torch.nn.RNN(model.config.hidden_size,model.config.hidden_size,batch_first=True)
+        elif pool == 'transf':
+            self.overtransformer = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
+                                                                    8, batch_first=True,
+                                                                    norm_first=True)
+        self.extractor.pooler = torch.nn.Sequential(
+            torch.nn.LayerNorm(model.config.hidden_size),
+            self.extractor.pooler.dense,
+            self.extractor.pooler.activation
+        )
         self.step = step
         self.cls = tokenizer.convert_tokens_to_ids(tokenizer.cls_token)
         self.eos = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
@@ -140,11 +146,11 @@ class FakeBELT(FakeModel):
             attn_mask: torch.Tensor, attention mask
             alpha: int, scaling factor for the noisy embeddings
         '''
-        CHUNK_SIZE = self.tokenizer.model_max_length - 1
+        CHUNK_SIZE = self.tokenizer.model_max_length - 2
         STEP = int(CHUNK_SIZE * self.step)
         # TOKENIZAR
         batch = self.tokenizer(batch, return_tensors='pt', padding=True, max_length=self.max_length, truncation=True)
-        x, attn_mask = batch['input_ids'].to(self.model.device), batch['attention_mask'].to(self.model.device)
+        x, attn_mask = batch['input_ids'].to(self.extractor.device), batch['attention_mask'].to(self.extractor.device)
         x, attn_mask = x[:,1:], attn_mask[:,1:] # eliminar cls
         max_len = x.shape[-1]
         lengths = torch.sum(attn_mask, dim=1)
@@ -156,33 +162,44 @@ class FakeBELT(FakeModel):
         attn_mask = torch.cat([attn_mask, torch.ones(attn_mask.shape[0],padding,dtype=torch.long).to(attn_mask.device)], dim=1)
         attn_mask = rearrange(attn_mask.unfold(1,CHUNK_SIZE,STEP), 'b n l -> (b n) l')
         # CLS Y EOS
-        x = torch.cat([torch.ones(x.shape[0],1,dtype=torch.long).to(x.device) * self.cls, x], dim=1)
-        attn_mask = torch.cat([torch.ones(attn_mask.shape[0],1,dtype=torch.long).to(attn_mask.device), attn_mask], dim=1)
-        x[:,lengths%CHUNK_SIZE+1] = self.eos
-        attn_mask[:,lengths%CHUNK_SIZE+1] = 1
+        x = torch.cat([torch.ones(x.shape[0],1,dtype=torch.long).to(x.device) * self.cls, x, torch.ones(x.shape[0],1,dtype=torch.long).to(x.device) * self.eos], dim=1)
+        attn_mask = torch.cat([torch.ones(attn_mask.shape[0],1,dtype=torch.long).to(attn_mask.device), attn_mask, torch.ones(x.shape[0],1,dtype=torch.long).to(x.device)], dim=1)
+        i = torch.tensor([torch.sum(torch.ceil(lengths[:j+1]/CHUNK_SIZE),dtype=torch.int) for j in range(lengths.shape[0])])
+        x[i-1,-1] = self.pad
+        attn_mask[i-1,-1] = 0
         # EMBEDDINGS
-        embs = self.model.embeddings(x)
-        if self.add_noise and self.noise:
-            scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
-            noise = self.noise(embs) * scale
-            embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
+        embs = self.extractor.embeddings(x)
+        with torch.no_grad():
+            if self.add_noise and self.noise:
+                scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
+                noise = self.noise(embs) * scale
+                embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
         # FORWARD
-        hidden_state = self.model(x, attention_mask=attn_mask).last_hidden_state
+        hidden_state = self.extractor(inputs_embeds=embs, attention_mask=attn_mask).last_hidden_state
         hidden_state *= torch.unsqueeze(attn_mask,-1).expand(-1,-1,hidden_state.size(-1))
         # POOLING
         hidden_state = rearrange(hidden_state[:,0,:], '(b n) h -> b n h', n = num_chunks + 1)
-        hidden_state = self.pool(hidden_state, lengths, dim=1)
-        model_output = self.model.pooler(hidden_state)
+        hidden_state = self.pool(hidden_state, dim=1)
+        model_output = self.extractor.pooler(hidden_state)
         # CLASIFICACION
         return self.head(model_output)
 
-    def pool(self, x, lengths, dim = 1):
+    def pool(self, x, dim = 1):
         if self.pool_strategy == 'max':
             return torch.max(x,dim=dim).values
-        elif self.pool_strategy == 'mean':
-            return torch.sum(x,dim=dim) / lengths
+        elif self.pool_strategy == 'avg':
+            return torch.mean(x,dim=dim)
         elif self.pool_strategy == 'sum':
             return torch.sum(x,dim=dim)
+        elif self.pool_strategy == 'attn':
+            hidden_size = x.shape[-1]
+            x = rearrange(x, 'b n h -> b (n h)')
+            x = torch.nn.functional.softmax(x @ x.transpose(0,1) / torch.sqrt(torch.tensor(x.shape[1])), dim=1) @ x
+            return x[:,:hidden_size]
+        elif self.pool_strategy == 'rnn':
+            return self.rnn(x,torch.unsqueeze(torch.ones(x.shape[0],x.shape[-1]),0).to(x.device))[1][0]
+        elif self.pool_strategy == 'transf':
+            return self.overtransformer(x)[:,0]
         else:
             raise ValueError(f'Unknown pooling strategy: {self.pool_strategy}')
         
@@ -190,7 +207,7 @@ class LightningModel(L.LightningModule):
     '''
     Envelope lightning module for fake news classification
     '''
-    def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10, alpha = 1):
+    def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10, alpha = 1, unfreeze = 0):
         '''
         Parameters:
             model: FakeModel, model for fake news classification
@@ -207,7 +224,16 @@ class LightningModel(L.LightningModule):
         self.sch_start_factor = sch_start_factor
         self.sch_iters = sch_iters
         self.alpha = alpha
-        self.save_hyperparameters('lr', 'sch_start_factor', 'sch_iters', 'alpha')  
+        self.unfreeze_epoch = unfreeze
+        if unfreeze >= 0:
+            for p in self.model.extractor.encoder.parameters(): p.requires_grad = False
+        if hasattr(self.model, 'step'):
+            self.hparams.step = self.model.step
+        if hasattr(self.model, 'max_length'):
+            self.hparams.max_length = self.model.max_length
+        if hasattr(self.model, 'pool_strategy'):
+            self.hparams.pool = self.model.pool_strategy
+        self.save_hyperparameters(ignore=['model','tokenizer'])
 
     def forward(self, batch):
         '''
@@ -258,6 +284,8 @@ class LightningModel(L.LightningModule):
         metrics['f1_dev'] = report['macro avg']['f1-score']
         metrics['f1_true_dev'] = report['True']['f1-score']
         metrics['f1_fake_dev'] = report['Fake']['f1-score']
+        metrics['recall_true_dev'] = report['True']['recall']
+        metrics['recall_fake_dev'] = report['Fake']['recall']
         self.log_dict(metrics)
         return report
 
@@ -279,6 +307,8 @@ class LightningModel(L.LightningModule):
         metrics['f1_test'] = report['macro avg']['f1-score']
         metrics['f1_true_test'] = report['True']['f1-score']
         metrics['f1_fake_test'] = report['Fake']['f1-score']
+        metrics['recall_true_test'] = report['True']['recall']
+        metrics['recall_fake_test'] = report['Fake']['recall']
         self.log_dict(metrics)
         return metrics
 
@@ -309,15 +339,20 @@ class LightningModel(L.LightningModule):
         return self.forward(batch['text']).argmax(dim=1)
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9,0.999), eps=1e-8)
-        return {'optimizer': opt,
-                'lr_scheduler': {'scheduler': torch.optim.lr_scheduler.LinearLR(opt, 
-                                                                  start_factor = self.sch_start_factor, 
-                                                                  end_factor = 1, 
-                                                                  total_iters = self.sch_iters),
-                                        'monitor': 'f1_dev',
-                                        'interval': 'epoch',
-                                        'frequency': 1}}
+        out = {'optimizer': torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9,0.999), eps=1e-8)}
+        out['lr_scheduler'] = {'scheduler': torch.optim.lr_scheduler.LinearLR(out['optimizer'], 
+                                                                start_factor = self.sch_start_factor, 
+                                                                end_factor = 1, 
+                                                                total_iters = self.sch_iters),
+                                    'monitor': 'f1_dev',
+                                    'interval': 'epoch',
+                                    'frequency': 1}
+        return out
+    
+    def on_train_epoch_start(self):
+        if self.current_epoch == self.unfreeze_epoch:
+            for p in self.model.extractor.encoder.parameters(): p.requires_grad = True
+            #self.optimizers().param_groups[0]['lr'] = self.lr
 
 class NamedEntityMasker:
     '''

@@ -11,7 +11,8 @@ torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 np.random.seed(seed)
 
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+#device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+device = 'cpu'
 
 if len(sys.argv) != 2:
     print('Uso: python add.py num')
@@ -44,11 +45,11 @@ def get_embeddings(texts, model, tokenizer, batch_size=8):
     return torch.cat(embs).numpy()
 fake_embs = get_embeddings(fake['text'].tolist(), model, tokenizer)
 true_embs = get_embeddings(true['text'].tolist(), model, tokenizer)
-base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
-#fake_center = np.mean(fake_embs)
-fake_center = np.mean(base_embs[base['category'] == 'Fake'])
-#true_center = np.mean(true_embs)
-true_center = np.mean(base_embs[base['category'] == 'True'])
+#base_embs = get_embeddings(base['text'].tolist(), model, tokenizer)
+fake_center = np.mean(fake_embs)
+#fake_center = np.mean(base_embs[base['category'] == 'Fake'])
+true_center = np.mean(true_embs)
+#true_center = np.mean(base_embs[base['category'] == 'True'])
 fake_weights = np.linalg.norm(fake_embs - fake_center,axis=1)
 true_weights = np.linalg.norm(true_embs - true_center,axis=1)
 
