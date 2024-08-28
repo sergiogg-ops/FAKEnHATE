@@ -11,8 +11,7 @@ torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 np.random.seed(seed)
 
-#device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-device = 'cpu'
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 if len(sys.argv) != 2:
     print('Uso: python add.py num')

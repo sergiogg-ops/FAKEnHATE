@@ -34,7 +34,7 @@ Fake news detection in Spanish
     | pipe4  | es-ja-fr-es |
     | pipe5  | es-sv-zh-es |
     | pipe6  | es-fi-el-es |
-    | pipe7  | /es-ru-ar-es |
+    | pipe7  | es-ru-ar-es |
     | pipe8  | es-fr-ko-es |
     | pipe9  | es-el-af-es |
     | pipe10 | es-ru-hi-es |

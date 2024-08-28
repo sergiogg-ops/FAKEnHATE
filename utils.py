@@ -97,6 +97,15 @@ class FakeModel(torch.nn.Module):
         return self.head(model_output.pooler_output)
     
     def train(self, mode = True):
+        '''
+        Set the model in training mode
+
+        Parameters:
+            mode: bool, training mode
+        
+        Returns:
+            FakeModel, model in training mode
+        '''
         if not isinstance(mode, bool):
             raise ValueError("training mode is expected to be boolean")
         self.training = mode
@@ -106,6 +115,9 @@ class FakeModel(torch.nn.Module):
         return self
 
 class FakeBELT(FakeModel):
+    '''
+    Model for fake news classification with longer context
+    '''
     def __init__(self, model, tokenizer, output_size=2, add_noise=False, pool = 'max', step = 0.75, max_length = 100000):
         '''
         Parameters:
@@ -134,16 +146,13 @@ class FakeBELT(FakeModel):
         self.eos = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
         self.pad = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
         self.max_length = max_length
-    '''
-    Model for fake news classification using all the text
-    '''
+
     def forward(self, batch, alpha = 1):
         '''
         Make an inference with the model
 
         Parameters:
-            x: torch.Tensor, input tensor
-            attn_mask: torch.Tensor, attention mask
+            batch: list of str, input texts
             alpha: int, scaling factor for the noisy embeddings
         '''
         CHUNK_SIZE = self.tokenizer.model_max_length - 2
@@ -185,6 +194,16 @@ class FakeBELT(FakeModel):
         return self.head(model_output)
 
     def pool(self, x, dim = 1):
+        '''
+        Performs the pooling operation over the hidden states
+
+        Parameters:
+            x: torch.Tensor, hidden states
+            dim: int, dimension to pool
+        
+        Returns:
+            torch.Tensor, pooled hidden states
+        '''
         if self.pool_strategy == 'max':
             return torch.max(x,dim=dim).values
         elif self.pool_strategy == 'avg':
@@ -350,6 +369,9 @@ class LightningModel(L.LightningModule):
         return out
     
     def on_train_epoch_start(self):
+        '''
+        Unfreezes the model parameters if the current epoch has been set as the unfreeze epoch
+        '''
         if self.current_epoch == self.unfreeze_epoch:
             for p in self.model.extractor.encoder.parameters(): p.requires_grad = True
             #self.optimizers().param_groups[0]['lr'] = self.lr
@@ -392,4 +414,13 @@ def seed_everything(seed=42):
     L.seed_everything(seed)
 
 def rand_like(x):
+    '''
+    Returns a tensor with the same shape as x with random values distributed uniformally between -1 and 1
+
+    Parameters:
+        x: torch.Tensor, tensor to get the shape
+    
+    Returns:
+        torch.Tensor, tensor with random values
+    '''
     return torch.rand_like(x) * 2 - 1
