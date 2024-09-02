@@ -10,6 +10,7 @@ import torch
 import spacy
 
 LABELS = {'Fake':0, 'True':1}
+ID2LABEL = {0:'Fake', 1:'True'}
 
 class FakeSet(Dataset):
     '''
@@ -226,13 +227,13 @@ class LightningModel(L.LightningModule):
     '''
     Envelope lightning module for fake news classification
     '''
-    def __init__(self, model, tokenizer, lr = 5e-6, sch_start_factor = 0.7, sch_iters = 10, alpha = 1, unfreeze = 0):
+    def __init__(self, model, tokenizer, lr = 5e-6, sch_factor = 0.7, sch_iters = 10, alpha = 1, unfreeze = 0):
         '''
         Parameters:
             model: FakeModel, model for fake news classification
             tokenizer: transformers tokenizer, tokenizer for the model
             lr: float, learning rate
-            sch_start_factor: start factor for the linear learning rate scheduler
+            sch_factor: start factor for the linear learning rate scheduler
             sch_iters: number of iteration for the linear learning rate scheduler
             alpha: scaling factor of the noisy embeddings to apply overt the model
         '''
@@ -240,7 +241,7 @@ class LightningModel(L.LightningModule):
         self.model = model
         self.tokenizer = tokenizer
         self.lr = lr
-        self.sch_start_factor = sch_start_factor
+        self.sch_factor = sch_factor
         self.sch_iters = sch_iters
         self.alpha = alpha
         self.unfreeze_epoch = unfreeze
@@ -360,19 +361,24 @@ class LightningModel(L.LightningModule):
     def configure_optimizers(self):
         out = {'optimizer': torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9,0.999), eps=1e-8)}
         out['lr_scheduler'] = {'scheduler': torch.optim.lr_scheduler.LinearLR(out['optimizer'], 
-                                                                start_factor = self.sch_start_factor, 
+                                                                start_factor = self.sch_factor, 
                                                                 end_factor = 1, 
                                                                 total_iters = self.sch_iters),
                                     'monitor': 'f1_dev',
                                     'interval': 'epoch',
                                     'frequency': 1}
+        '''out['lr_scheduler'] = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(out['optimizer'], 
+                                                                mode='min', factor=self.sch_factor, patience=3),
+                                'monitor': 'loss_train',
+                                'interval': 'step',
+                                'frequency': 100}'''
         return out
     
     def on_train_epoch_start(self):
         '''
         Unfreezes the model parameters if the current epoch has been set as the unfreeze epoch
         '''
-        if self.current_epoch == self.unfreeze_epoch:
+        if self.current_epoch == self.unfreeze_epoch and hasattr(self.model.extractor, 'encoder'):
             for p in self.model.extractor.encoder.parameters(): p.requires_grad = True
             #self.optimizers().param_groups[0]['lr'] = self.lr
 

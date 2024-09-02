@@ -24,6 +24,7 @@ parser.add_argument('-full','--full_length', default=False, action='store_true',
 parser.add_argument('-pool','--pool_strategy', default='max',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
 parser.add_argument('-s','--stride',type=float, default=0.75,help='Stride for the full length proccessing approach')
 parser.add_argument('-unfreeze','--unfreeze_epoch',type=int,default=0,help='When using the full length apprach, the epoch in which the params of the BERT type model will unfreeze. If not especified the params will be unfrozen from the start.')
+parser.add_argument('-t','--test', default=False, action='store_true', help='Test the model at the end of training.')
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
 
@@ -41,19 +42,21 @@ masker = utils.NamedEntityMasker(args.mask_ner) if args.mask_ner else None
 
 train_set = utils.FakeSet(os.path.join(args.data_dir,'train.json'), sep=tokenizer.sep_token, masker=masker, verbose=args.verbose)
 dev_set = utils.FakeSet(os.path.join(args.data_dir,'dev.json'), sep=tokenizer.sep_token, masker=masker, verbose=args.verbose)
-#test_set = utils.FakeSet('data/test.json', sep=tokenizer.sep_token, masker=masker, verbose=args.verbose)
+if args.test:
+        test_set = utils.FakeSet(os.path.join(args.data_dir,'test.json'), sep=tokenizer.sep_token, masker=masker, verbose=args.verbose)
 
 num_workers = os.cpu_count() - 1
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=num_workers)
 dev_loader = torch.utils.data.DataLoader(dev_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
-#test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
+if args.test:
+        test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
 #optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
 #lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
 
 model = utils.LightningModel(model, tokenizer, 
                              lr=args.learning_rate, 
-                             sch_start_factor=args.lr_scheduler, 
+                             sch_factor=args.lr_scheduler, 
                              sch_iters=args.epochs, 
                              alpha=args.alpha,
                              unfreeze=args.unfreeze_epoch)
@@ -71,4 +74,5 @@ trainer = L.Trainer(max_steps=int(987/args.batch_size+1)*25,
                     accumulate_grad_batches=1)
 
 trainer.fit(model, train_loader, dev_loader)
-#trainer.test(model, test_loader)
+if args.test:
+        trainer.test(model, test_loader, ckpt_path='best')

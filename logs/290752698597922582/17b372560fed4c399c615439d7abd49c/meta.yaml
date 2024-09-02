@@ -1,0 +1,16 @@
+artifact_uri: file:///home/sergio/Escritorio/FAKEnHATE/logs/290752698597922582/17b372560fed4c399c615439d7abd49c/artifacts
+deleted_time: 1722331237633
+end_time: 1722330760516
+entry_point_name: ''
+experiment_id: '290752698597922582'
+lifecycle_stage: deleted
+run_id: 17b372560fed4c399c615439d7abd49c
+run_name: '3000'
+run_uuid: 17b372560fed4c399c615439d7abd49c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1722330517069
+status: 4
+tags: []
+user_id: sergio

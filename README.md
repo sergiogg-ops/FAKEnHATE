@@ -1,5 +1,6 @@
 # FAKEnHATE
 Fake news detection in Spanish
+This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. It also contains the results of our experimentation in the logs folder. This experimentation has been performed in the following way:
 
 1. Baseline: simple RoBERTa model with the best parameters.
     - Learning rate: 2e-5
