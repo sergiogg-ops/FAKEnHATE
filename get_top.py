@@ -3,9 +3,9 @@ import yaml
 import os
 from argparse import ArgumentParser
 
-parser = ArgumentParser()
-parser.add_argument('dir', help='Directory of the experiment')
-parser.add_argument('experiment', help='Directory of the experiment')
+parser = ArgumentParser(help='Get the top scoring runs of an experiment')
+parser.add_argument('dir', help='Directory of the experimentation')
+parser.add_argument('experiment', help='Directory of the experiment (name)')
 parser.add_argument('metric', help='Metric to compare')
 parser.add_argument('-n','--top', type=int, default=5, help='Number of top runs to show')
 parser.add_argument('-m','--mode', default='max', choices=['max','min'], help='Mode of the metric')

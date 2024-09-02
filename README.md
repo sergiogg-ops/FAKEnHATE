@@ -1,6 +1,6 @@
 # FAKEnHATE
 Fake news detection in Spanish
-This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. It also contains the results of our experimentation in the logs folder. This experimentation has been performed in the following way:
+This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. It also contains the results of our experimentation in the logs folder. It might be usefull to use the get_top.py script to check the best scoring runs. This experimentation has been performed in the following way:
 
 1. Baseline: simple RoBERTa model with the best parameters.
     - Learning rate: 2e-5
@@ -17,7 +17,7 @@ This git includes the code to train and evaluate models for this task with the F
         - Learning rate: 5e-6
         - Batch size: 16
         - Learning rate scheduler: linear (0.6-1)
-3. Add new data to the corpus:
+3. Add new data to the corpus with the addition folder scripts:
     - Fake or unreliable news from https://hrashkin.github.io/factcheck.html, hoax labelled samples. This dataset doesn't contain any title so, to avoid biases, we have artifically generated them by using a Flan-T5 model.
     - Reliable news from https://osf.io/snpcg/ (LOCO dataset)
     
@@ -40,6 +40,6 @@ This git includes the code to train and evaluate models for this task with the F
     | pipe9  | es-el-af-es |
     | pipe10 | es-ru-hi-es |
     | pipe11 | es-ko-af-es |
-5. Use noisy embeddings to train the model:
+5. Use noisy embeddings to train the model as in the article https://arxiv.org/abs/2310.05914:
     - Uniform random noise with scale factor of 10 (20)
     - Gaussian random noise with scale factor of 0.05
