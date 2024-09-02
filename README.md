@@ -13,7 +13,7 @@ This git includes the code to train and evaluate models for this task with the F
         - organization (ORG): 5482
         - places (LOC): 12438
         - miscellanea (MISC):12170
-    - We have perform an ablation study, masking different combinations of NE. The best results have been produced by masking the person and organization entities. We have adjusted the training parameters with the following quantities:
+    - We have performed an ablation study, masking different combinations of NE. The best results have been produced by masking the person and organization entities. We have adjusted the training parameters with the following quantities:
         - Learning rate: 5e-6
         - Batch size: 16
         - Learning rate scheduler: linear (0.6-1)
