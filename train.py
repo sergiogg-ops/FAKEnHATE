@@ -34,7 +34,8 @@ if args.mask_ner == [] and args.verbose:
 tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 if args.full_length:
-        model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500, pool=args.pool_strategy, step=args.stride)
+        #model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500, pool=args.pool_strategy, step=args.stride)
+        model = utils.CustomBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500, step=args.stride)
 else:
         model = utils.FakeModel(model, tokenizer=tokenizer, add_noise=args.noise)
 

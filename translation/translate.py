@@ -39,7 +39,7 @@ def main():
                                 device=0,
                                 batch_size=args.batch_size,
                                 num_workers=num_workers)
-        translation = utils.translate(translator, data, src, tgt,field=args.output_field)
+        translation = utils.translate(translator, data, src, tgt,field=args.input_field)
         for i in range(len(translation)):
             if isinstance(translation[i],list) and len(translation[i]) == 0:
                 translation[i] = [np.nan]

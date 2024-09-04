@@ -19,7 +19,12 @@ if len(sys.argv) != 2:
 N = int(sys.argv[1])
 
 true = pd.read_json('data/LOCO/LOCO.json')
+corr = pd.read_json('data/LOCO/correspondencia.json').iloc[0].to_dict()
+topics = []
+for k, v in corr.items():
+    topics.extend(v)
 true = true[true['subcorpus'] == 'mainstream']
+true = true[true['topic_k100'].isin(topics)]
 
 # PONDERATION
 tokenizer = AutoTokenizer.from_pretrained("FacebookAI/roberta-base")
@@ -40,7 +45,8 @@ def get_subset(data, n, model, tokenizer, seed=42, batch_size=8):
     data['embedding'] = [np.array(e) for e in emb]
     res = data.sample(1, random_state=seed)
     for _ in tqdm(range(0,n,batch_size),desc='Creando subset'):
-        centroid = KMeans(n_clusters=1, random_state=seed).fit(np.stack(res['embedding'])).cluster_centers_
+        centroid = np.mean(np.stack(res['embedding']),axis=0)
+        #centroid = KMeans(n_clusters=1, random_state=seed).fit(np.stack(res['embedding'])).cluster_centers_
         weights = np.linalg.norm(np.stack(data['embedding']) - centroid,axis=1)
         res = pd.concat((res, data.sample(batch_size,weights=weights)))
     return res

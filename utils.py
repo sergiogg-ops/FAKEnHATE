@@ -27,6 +27,7 @@ class FakeSet(Dataset):
         data = pd.read_json(path)
         self.text = list(data['text'].values)
         self.label = torch.tensor(data['category'].apply(lambda x: LABELS[x]),dtype=torch.long)
+        self.topic = list(data['topic'])
         if 'headline' in data.columns:
             self.text = [h + sep + t if h else t for h,t in zip(data['headline'], self.text)]
         if masker:
@@ -48,7 +49,7 @@ class FakeSet(Dataset):
         Returns:
             dict, {'text':str, 'label':int}
         '''
-        return {'text':self.text[idx], 'label':self.label[idx]}
+        return {'text':self.text[idx], 'label':self.label[idx], 'topic':self.topic[idx]}
 
 class FakeModel(torch.nn.Module):
     '''
@@ -69,7 +70,8 @@ class FakeModel(torch.nn.Module):
         self.tokenizer = tokenizer
         self.head = torch.nn.Sequential(
             torch.nn.GELU(),
-            torch.nn.Dropout(0.3),
+            #torch.nn.Dropout(0.3),
+            torch.nn.Dropout(0.5),
             torch.nn.Linear(model.config.hidden_size, output_size))
         self.add_noise = bool(add_noise)
         self.noise = {'uniform':rand_like,
@@ -222,6 +224,70 @@ class FakeBELT(FakeModel):
             return self.overtransformer(x)[:,0]
         else:
             raise ValueError(f'Unknown pooling strategy: {self.pool_strategy}')
+
+class CustomBELT(FakeBELT):
+    def __init__(self, model, tokenizer, output_size=2, add_noise=False, step = 0.75, max_length = 100000):
+        super().__init__(model,tokenizer,output_size,add_noise)
+        self.aggregator = torch.nn.MultiheadAttention(model.config.hidden_size, 8, batch_first=True, kdim=model.config.hidden_size, vdim=model.config.hidden_size)
+        #self.sticky = torch.nn.Parameter(torch.randn(1,tokenizer.model_max_length,model.config.hidden_size))
+        #self.top_encoder = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
+        #                                                            8, batch_first=True,
+        #                                                            norm_first=True)
+        self.lstm = torch.nn.LSTM(model.config.hidden_size,model.config.hidden_size,batch_first=True, dropout=0.3)
+
+        self.step = step
+        self.cls = tokenizer.convert_tokens_to_ids(tokenizer.cls_token)
+        self.eos = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
+        self.pad = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+        self.max_length = max_length
+    
+    def forward(self, batch, alpha = 1):
+        CHUNK_SIZE = self.tokenizer.model_max_length - 2
+        STEP = int(CHUNK_SIZE * self.step)
+        # TOKENIZAR
+        batch = self.tokenizer(batch, return_tensors='pt', padding=True, max_length=self.max_length, truncation=True)
+        x, attn_mask = batch['input_ids'].to(self.extractor.device), batch['attention_mask'].to(self.extractor.device)
+        BATCH = x.shape[0]
+        x, attn_mask = x[:,1:], attn_mask[:,1:] # eliminar cls
+        max_len = x.shape[-1]
+        lengths = torch.sum(attn_mask, dim=1)
+        # PARTIR Y CHUNKS
+        num_chunks = max(ceil((max_len - CHUNK_SIZE) / STEP),0)
+        padding = num_chunks * STEP + CHUNK_SIZE - max_len
+        x = torch.cat([x, torch.zeros(x.shape[0],padding, dtype=torch.long).to(x.device) + self.pad], dim=1)
+        x = rearrange(x.unfold(1,CHUNK_SIZE,STEP), 'b n l -> (b n) l')
+        # TODO: ZEROS POR ONES NO?????
+        attn_mask = torch.cat([attn_mask, torch.zeros(attn_mask.shape[0],padding,dtype=torch.long).to(attn_mask.device)], dim=1)
+        attn_mask = rearrange(attn_mask.unfold(1,CHUNK_SIZE,STEP), 'b n l -> (b n) l')
+        # CLS Y EOS
+        x = torch.cat([torch.zeros(x.shape[0],1,dtype=torch.long).to(x.device) + self.cls, x, torch.zeros(x.shape[0],1,dtype=torch.long).to(x.device) + self.eos], dim=1)
+        attn_mask = torch.cat([torch.ones(attn_mask.shape[0],1,dtype=torch.long).to(attn_mask.device), attn_mask, torch.ones(x.shape[0],1,dtype=torch.long).to(x.device)], dim=1)
+        i = torch.tensor([torch.sum(torch.ceil(lengths[:j+1]/CHUNK_SIZE),dtype=torch.int) for j in range(lengths.shape[0])])
+        x[i-1,-1] = self.pad
+        attn_mask[i-1,-1] = 0
+        # EMBEDDINGS
+        embs = self.extractor.embeddings(x)
+        with torch.no_grad():
+            if self.add_noise and self.noise:
+                scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
+                noise = self.noise(embs) * scale
+                embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
+        # 1º FASE [b n, l, h]
+        hidden_state = self.extractor(inputs_embeds=embs, attention_mask=attn_mask).last_hidden_state
+        hidden_state *= torch.unsqueeze(attn_mask,-1).expand(-1,-1,hidden_state.size(-1))
+        '''# AGREGACION [b l, n, h]
+        hidden_state = rearrange(hidden_state, '(b n) l h -> (b l) n h', n = num_chunks + 1)
+        sticker = self.sticky.expand(BATCH,-1,-1)
+        sticker = torch.unsqueeze(rearrange(sticker, 'b l h -> (b l) h'),1)
+        hidden_state = torch.cat([sticker, hidden_state], dim=1)
+        hidden_state = self.aggregator(hidden_state, hidden_state, hidden_state, need_weights=False)[0][:,0]
+        # 2º FASE [b, l, h]
+        hidden_state = rearrange(hidden_state, '(b l) h -> b l h', b=BATCH)
+        hidden_state = self.top_encoder(hidden_state)[:,0]'''
+        hidden_state = rearrange(hidden_state[:,0,:], '(b n) h -> b n h', n = num_chunks + 1)
+        hidden_state = self.lstm(hidden_state)[0][:,-1]
+        # CLASIFICACION [b, h]
+        return self.head(hidden_state)
         
 class LightningModel(L.LightningModule):
     '''
@@ -356,7 +422,7 @@ class LightningModel(L.LightningModule):
         return loss, report
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        return self.forward(batch['text']).argmax(dim=1)
+        return self.forward(batch['text'])#.argmax(dim=1)
 
     def configure_optimizers(self):
         out = {'optimizer': torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9,0.999), eps=1e-8)}
@@ -365,8 +431,9 @@ class LightningModel(L.LightningModule):
                                                                 end_factor = 1, 
                                                                 total_iters = self.sch_iters),
                                     'monitor': 'f1_dev',
-                                    'interval': 'epoch',
-                                    'frequency': 1}
+                                    #'interval': 'epoch',
+                                    'interval': 'step',
+                                    'frequency': 124}
         '''out['lr_scheduler'] = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(out['optimizer'], 
                                                                 mode='min', factor=self.sch_factor, patience=3),
                                 'monitor': 'loss_train',

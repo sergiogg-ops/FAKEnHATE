@@ -1,0 +1,2 @@
+python translation/translate.py data/LOCO/LOCO_selection.json -l en es -if txt -of text -out data/LOCO/LOCO_sel_trans.json -v
+python translation/translate.py data/LOCO/LOCO_sel_trans.json -l en es -if title -of headline -out data/LOCO/LOCO_sel_trans.json -v
