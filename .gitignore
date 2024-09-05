@@ -161,10 +161,14 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-data/*
-!data/FakeNewsCorpusSpanish
+data/backtranslation/*
+data/base/*
+data/ext_data/*
 data/FakeNewsCorpusSpanish/*
 !data/FakeNewsCorpusSpanish/split.py
+data/LOCO/*
+data/pubreleasednewsfiles/*
+
 models/*
 figures/*
 *.out
