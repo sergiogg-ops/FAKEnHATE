@@ -8,6 +8,7 @@ import lightning as L
 import numpy as np
 import torch
 import spacy
+import torchmetrics
 
 LABELS = {'Fake':0, 'True':1}
 ID2LABEL = {0:'Fake', 1:'True'}
@@ -49,7 +50,7 @@ class FakeSet(Dataset):
         Returns:
             dict, {'text':str, 'label':int}
         '''
-        return {'text':self.text[idx], 'label':self.label[idx], 'topic':self.topic[idx]}
+        return {'text':self.text[idx], 'label':self.label[idx]}
 
 class FakeModel(torch.nn.Module):
     '''
@@ -139,6 +140,7 @@ class FakeBELT(FakeModel):
             self.overtransformer = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
                                                                     8, batch_first=True,
                                                                     norm_first=True)
+            #self.overtransformer = CustomEncoder(1)
         self.extractor.pooler = torch.nn.Sequential(
             torch.nn.LayerNorm(model.config.hidden_size),
             self.extractor.pooler.dense,
@@ -224,16 +226,36 @@ class FakeBELT(FakeModel):
             return self.overtransformer(x)[:,0]
         else:
             raise ValueError(f'Unknown pooling strategy: {self.pool_strategy}')
+    
+class CustomEncoder(torch.nn.Module):
+    def __init__(self, num_layers):
+        super().__init__()
+        self.mlps = torch.nn.ModuleList([torch.nn.Sequential(
+            torch.nn.Linear(768, 768),
+            torch.nn.GELU(),
+            torch.nn.Linear(768, 768),
+            torch.nn.GELU(),
+        ) for _ in range(num_layers)])
+        self.attns = torch.nn.ModuleList([torch.nn.MultiheadAttention(768, 8, batch_first=True) for _ in range(num_layers)])
+        self.norms1 = torch.nn.ModuleList([torch.nn.LayerNorm(768) for _ in range(num_layers)])
+        self.norms2 = torch.nn.ModuleList([torch.nn.LayerNorm(768) for _ in range(num_layers)])
+    
+    def forward(self, x):
+        for mlp, attn, norm1, norm2 in zip(self.mlps, self.attns, self.norms1, self.norms2):
+            x = x + attn(x,x,x)[0]
+            x = x + mlp(norm1(x))
+            x = norm2(x)
+        return x
 
 class CustomBELT(FakeBELT):
     def __init__(self, model, tokenizer, output_size=2, add_noise=False, step = 0.75, max_length = 100000):
         super().__init__(model,tokenizer,output_size,add_noise)
         self.aggregator = torch.nn.MultiheadAttention(model.config.hidden_size, 8, batch_first=True, kdim=model.config.hidden_size, vdim=model.config.hidden_size)
-        #self.sticky = torch.nn.Parameter(torch.randn(1,tokenizer.model_max_length,model.config.hidden_size))
-        #self.top_encoder = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
-        #                                                            8, batch_first=True,
-        #                                                            norm_first=True)
-        self.lstm = torch.nn.LSTM(model.config.hidden_size,model.config.hidden_size,batch_first=True, dropout=0.3)
+        self.sticky = torch.nn.Parameter(torch.randn(1,tokenizer.model_max_length,model.config.hidden_size))
+        self.top_encoder = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
+                                                                    8, batch_first=True,
+                                                                    norm_first=True)
+        #self.lstm = torch.nn.LSTM(model.config.hidden_size,model.config.hidden_size,batch_first=True, dropout=0.3)
 
         self.step = step
         self.cls = tokenizer.convert_tokens_to_ids(tokenizer.cls_token)
@@ -275,7 +297,7 @@ class CustomBELT(FakeBELT):
         # 1º FASE [b n, l, h]
         hidden_state = self.extractor(inputs_embeds=embs, attention_mask=attn_mask).last_hidden_state
         hidden_state *= torch.unsqueeze(attn_mask,-1).expand(-1,-1,hidden_state.size(-1))
-        '''# AGREGACION [b l, n, h]
+        # AGREGACION [b l, n, h]
         hidden_state = rearrange(hidden_state, '(b n) l h -> (b l) n h', n = num_chunks + 1)
         sticker = self.sticky.expand(BATCH,-1,-1)
         sticker = torch.unsqueeze(rearrange(sticker, 'b l h -> (b l) h'),1)
@@ -283,9 +305,9 @@ class CustomBELT(FakeBELT):
         hidden_state = self.aggregator(hidden_state, hidden_state, hidden_state, need_weights=False)[0][:,0]
         # 2º FASE [b, l, h]
         hidden_state = rearrange(hidden_state, '(b l) h -> b l h', b=BATCH)
-        hidden_state = self.top_encoder(hidden_state)[:,0]'''
-        hidden_state = rearrange(hidden_state[:,0,:], '(b n) h -> b n h', n = num_chunks + 1)
-        hidden_state = self.lstm(hidden_state)[0][:,-1]
+        hidden_state = self.top_encoder(hidden_state)[:,0]
+        # hidden_state = rearrange(hidden_state[:,0,:], '(b n) h -> b n h', n = num_chunks + 1)
+        # hidden_state = self.lstm(hidden_state)[0][:,-1]
         # CLASIFICACION [b, h]
         return self.head(hidden_state)
         
@@ -373,7 +395,7 @@ class LightningModel(L.LightningModule):
         metrics['recall_true_dev'] = report['True']['recall']
         metrics['recall_fake_dev'] = report['Fake']['recall']
         self.log_dict(metrics)
-        return report
+        return metrics
 
     def test_step(self, batch, batch_idx):
         '''
