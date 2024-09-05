@@ -162,6 +162,8 @@ cython_debug/
 #.idea/
 
 data/*
+!data/FakeNewsCorpusSpanish
+data/FakeNewsCorpusSpanish/*
 !data/FakeNewsCorpusSpanish/split.py
 models/*
 figures/*
