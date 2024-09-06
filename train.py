@@ -8,7 +8,7 @@ import torch
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 utils.seed_everything(42)
 
-parser = ArgumentParser()
+parser = ArgumentParser(description='Train a BERT like model to detect fake news')
 parser.add_argument('data_dir', help='Directory of the traning data')
 parser.add_argument('save_dir', help='Directory to save the model')
 parser.add_argument('-e','--epochs', type=int, default=10, help='Number of epochs to train')

@@ -8,7 +8,6 @@ import lightning as L
 import numpy as np
 import torch
 import spacy
-import torchmetrics
 
 LABELS = {'Fake':0, 'True':1}
 ID2LABEL = {0:'Fake', 1:'True'}
@@ -232,7 +231,14 @@ class FakeBELT(FakeModel):
             raise ValueError(f'Unknown pooling strategy: {self.pool_strategy}')
     
 class CustomEncoder(torch.nn.Module):
+    '''
+    Custom transformer encoder with the attention layer before the feed forward layer
+    '''
     def __init__(self, num_layers):
+        '''
+        Parameters:
+            num_layers: int, number of transformer layers
+        '''
         super().__init__()
         self.mlps = torch.nn.ModuleList([torch.nn.Sequential(
             torch.nn.Linear(768, 768),
@@ -245,6 +251,10 @@ class CustomEncoder(torch.nn.Module):
         self.norms2 = torch.nn.ModuleList([torch.nn.LayerNorm(768) for _ in range(num_layers)])
     
     def forward(self, x):
+        '''
+        Parameters:
+            x: torch.Tensor, input tensor
+        '''
         for mlp, attn, norm1, norm2 in zip(self.mlps, self.attns, self.norms1, self.norms2):
             x = x + attn(x,x,x)[0]
             x = x + mlp(norm1(x))
@@ -252,7 +262,21 @@ class CustomEncoder(torch.nn.Module):
         return x
 
 class CustomBELT(FakeBELT):
+    '''
+    Modificiation of the original BELT that performs the aggregation along the hidden states instead of the CLS tokens
+    '''
     def __init__(self, model, tokenizer, output_size=2, add_noise=False, step = 0.75, max_length = 100000):
+        '''
+        Parameters:
+            model: transformers model, pre-trained BERT like model
+            output_size: int, number of classes
+            add_noise: str or bool, type of noise for the embeddings
+                - False: no noise will be applied
+                - uniform: uniform noise
+                - normal: gaussian noise
+            step: float, step for the chunking process
+            max_length: int, max length of the text
+        '''
         super().__init__(model,tokenizer,output_size,add_noise)
         self.aggregator = torch.nn.MultiheadAttention(model.config.hidden_size, 8, batch_first=True, kdim=model.config.hidden_size, vdim=model.config.hidden_size)
         self.sticky = torch.nn.Parameter(torch.randn(1,tokenizer.model_max_length,model.config.hidden_size))
@@ -268,6 +292,11 @@ class CustomBELT(FakeBELT):
         self.max_length = max_length
     
     def forward(self, batch, alpha = 1):
+        '''
+        Parameters:
+            batch: list of str, input texts
+            alpha: int, scaling factor for the noisy embeddings
+        '''
         CHUNK_SIZE = self.tokenizer.model_max_length - 2
         STEP = int(CHUNK_SIZE * self.step)
         # TOKENIZAR
@@ -460,11 +489,6 @@ class LightningModel(L.LightningModule):
                                     #'interval': 'epoch',
                                     'interval': 'step',
                                     'frequency': 124}
-        '''out['lr_scheduler'] = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(out['optimizer'], 
-                                                                mode='min', factor=self.sch_factor, patience=3),
-                                'monitor': 'loss_train',
-                                'interval': 'step',
-                                'frequency': 100}'''
         return out
     
     def on_train_epoch_start(self):
@@ -473,7 +497,6 @@ class LightningModel(L.LightningModule):
         '''
         if self.current_epoch == self.unfreeze_epoch and hasattr(self.model.extractor, 'encoder'):
             for p in self.model.extractor.encoder.parameters(): p.requires_grad = True
-            #self.optimizers().param_groups[0]['lr'] = self.lr
 
 class NamedEntityMasker:
     '''

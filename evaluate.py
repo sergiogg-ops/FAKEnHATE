@@ -10,12 +10,12 @@ import torch
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 utils.seed_everything(42)
 
-parser = ArgumentParser()
+parser = ArgumentParser(description='Evaluate a BERT like model for the task of fake news detection.')
 parser.add_argument('file', help='File to evaluate')
 parser.add_argument('model', help='Model checkpoint')
 parser.add_argument('-b','--batch_size', type=int, default=8, help='Batch size')
 parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask named entities, if no arguments are given all entities are masked')
-parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
+parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode: detailed statistics and a hint of an optimum classification threshold')
 parser.add_argument('-out','--output', help='If provided the file in which the predictions will be saved')
 parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
 parser.add_argument('-pool','--pool_strategy', default='transf',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
@@ -39,13 +39,10 @@ num_workers = os.cpu_count() - 1
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
 predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader], ckpt_path=args.model)
-# predictions = []
-# for batch in tqdm(test_loader, desc='Prediciendo', total=len(test_loader)):
-#     predictions.append(model.forward(batch['text']))
 predictions = torch.nn.functional.softmax(torch.concatenate(predictions))
-conf = torch.sqrt(torch.mean(torch.square(predictions[:,0] - 0.5)))
 
 fake_scores = predictions[:,0].tolist()
+conf = torch.sqrt(torch.mean(torch.square(predictions[:,0] - 0.5)))
 #predictions = predictions.argmax(dim=1)
 predictions = torch.where(predictions[:,0] >= args.threshold, 0, 1)
 if args.output:
@@ -76,6 +73,7 @@ if args.verbose:
                                     target_names=utils.ID2LABEL.values(),
                                     digits=4,
                                     zero_division=0))
+    
     fpr, tpr, thrs = roc_curve([item['label'] for item in test_set], fake_scores, pos_label=0)
     best = torch.argmin(torch.sqrt(torch.tensor(fpr[1:-1]**2) + (torch.tensor((1-tpr[1:-1])**2)))) + 1
     print(f'Optimum threshold: {thrs[best]}')

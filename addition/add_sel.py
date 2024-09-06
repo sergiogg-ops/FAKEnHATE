@@ -14,7 +14,8 @@ np.random.seed(seed)
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 if len(sys.argv) != 2:
-    print('Uso: python add.py num')
+    print('Add N samples to the training data with a refined selection')
+    print('Uso: python add_sel.py num')
     exit()
 N = int(sys.argv[1])
 

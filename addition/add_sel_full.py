@@ -14,7 +14,8 @@ np.random.seed(seed)
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 if len(sys.argv) != 2:
-    print('Uso: python add.py num')
+    print('Selects the N samples most diverse from the LOCO dataset')
+    print('Uso: python add_sel_full.py num')
     exit()
 N = int(sys.argv[1])
 

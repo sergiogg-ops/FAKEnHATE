@@ -5,6 +5,7 @@ import sys
 np.random.seed(42)
 
 if len(sys.argv) != 2:
+    print('Add N samples to the training data')
     print('Uso: python add.py num')
     exit()
 N = int(sys.argv[1])
