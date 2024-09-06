@@ -43,7 +43,6 @@ predictions = torch.nn.functional.softmax(torch.concatenate(predictions))
 
 fake_scores = predictions[:,0].tolist()
 conf = torch.sqrt(torch.mean(torch.square(predictions[:,0] - 0.5)))
-#predictions = predictions.argmax(dim=1)
 predictions = torch.where(predictions[:,0] >= args.threshold, 0, 1)
 if args.output:
     data['prob_fake'] = fake_scores

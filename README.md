@@ -1,6 +1,6 @@
 # FAKEnHATE
 Fake news detection in Spanish
-This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. It also contains the results of our experimentation in the logs folder. It might be usefull to use the get_top.py script to check the best scoring runs. This experimentation has been performed in the following way:
+This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. It also contains the results of our experimentation in the logs folder that has been generated using an MLFlow logger. It might be usefull to use the get_top.py script to check the best scoring runs. This experimentation has been performed in the following way:
 
 1. Baseline: simple RoBERTa model with the best parameters.
     - Learning rate: 2e-5
@@ -25,7 +25,7 @@ This git includes the code to train and evaluate models for this task with the F
     - Randomly select samples.
     - Select the most different samples from each source: using the embeddings we gave more probability of being chosen to the samples more distant from the center of that dataset.
     - Select the samples that would make our dataset more diverse: using the embeddings we gave more probability of being chosen to the samples more distant to the center of our dataset.
-4. Apply backtranslation to the original corpus:
+4. Apply backtranslation to the original corpus through the following pipelines with Marian and M2M100 models:
     | ID     | Pipe        |
     |--------|-------------|
     | pipe0  | es-de-zh-es |
@@ -40,6 +40,8 @@ This git includes the code to train and evaluate models for this task with the F
     | pipe9  | es-el-af-es |
     | pipe10 | es-ru-hi-es |
     | pipe11 | es-ko-af-es |
+
+    The best pipelines have been the pipe0 and pipe5
 5. Use noisy embeddings to train the model as in the article https://arxiv.org/abs/2310.05914:
     - Uniform random noise with scale factor of 10 (20)
     - Gaussian random noise with scale factor of 0.05
