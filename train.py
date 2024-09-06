@@ -23,7 +23,7 @@ parser.add_argument('-no','--noise', default=False, choices=['uniform','normal']
 parser.add_argument('-alpha','--alpha',type=float, default=0, help='Alpha paratemetr to scale the noise in the embeddings')
 parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
 parser.add_argument('-max','--max_length', type=int, default=2500, help='Max length of the text when the flag of full length is used')
-parser.add_argument('-pool','--pool_strategy', default='max',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
+parser.add_argument('-pool','--pool_strategy', default='max',choices=['max','avg','sum','attn','rnn','lstm','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
 parser.add_argument('-s','--stride',type=float, default=0.75,help='Stride for the full length proccessing approach')
 parser.add_argument('-unfreeze','--unfreeze_epoch',type=int,default=0,help='When using the full length apprach, the epoch in which the params of the BERT type model will unfreeze. If not especified the params will be unfrozen from the start.')
 parser.add_argument('-t','--test', default=False, action='store_true', help='Test the model at the end of training.')

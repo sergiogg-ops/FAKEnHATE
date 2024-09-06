@@ -1,6 +1,6 @@
 from transformers import RobertaModel, AutoTokenizer
 from argparse import ArgumentParser
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_curve
 import lightning as L
 import pandas as pd
 import os
@@ -19,6 +19,7 @@ parser.add_argument('-v','--verbose', default=False, action='store_true', help='
 parser.add_argument('-out','--output', help='If provided the file in which the predictions will be saved')
 parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
 parser.add_argument('-pool','--pool_strategy', default='transf',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
+parser.add_argument('-thr','--threshold', type=float, default=0.5, help='Threshold for the fake news detection')
 args = parser.parse_args()
 
 tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
@@ -44,18 +45,17 @@ predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader], 
 predictions = torch.nn.functional.softmax(torch.concatenate(predictions))
 conf = torch.sqrt(torch.mean(torch.square(predictions[:,0] - 0.5)))
 
+fake_scores = predictions[:,0].tolist()
+#predictions = predictions.argmax(dim=1)
+predictions = torch.where(predictions[:,0] >= args.threshold, 0, 1)
 if args.output:
-    data['prob_fake'] = predictions[:,0].tolist()
-    predictions = predictions.argmax(dim=1)
+    data['prob_fake'] = fake_scores
     data['predictions'] = [utils.ID2LABEL[l.item()] for l in predictions]
     data.to_json(args.output, orient='records')
-else:
-    predictions = predictions.argmax(dim=1)
 
 print(classification_report([item['label'] for item in test_set], predictions, 
                             target_names=utils.ID2LABEL.values(),
                             digits=4))
-print(f'Mean confidence: {conf.item()}')
 
 if args.verbose:
     stats = {}
@@ -76,3 +76,7 @@ if args.verbose:
                                     target_names=utils.ID2LABEL.values(),
                                     digits=4,
                                     zero_division=0))
+    fpr, tpr, thrs = roc_curve([item['label'] for item in test_set], fake_scores, pos_label=0)
+    best = torch.argmin(torch.sqrt(torch.tensor(fpr[1:-1]**2) + (torch.tensor((1-tpr[1:-1])**2)))) + 1
+    print(f'Optimum threshold: {thrs[best]}')
+print(f'Mean confidence: {conf.item()}')

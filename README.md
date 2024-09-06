@@ -43,3 +43,13 @@ This git includes the code to train and evaluate models for this task with the F
 5. Use noisy embeddings to train the model as in the article https://arxiv.org/abs/2310.05914:
     - Uniform random noise with scale factor of 10 (20)
     - Gaussian random noise with scale factor of 0.05
+6. Substitute the simple roBERTa classifier for a BELT (BERT for longer texts: https://github.com/mim-solutions/bert_for_longer_texts) like classifier. We have tried different approximations to the problem of aggregating the CLS tokens from all the patches:
+    - Max pooling
+    - Average pooling
+    - Addition
+    - Self attention over the CLS token from the first patch with respect to the others
+    - Elman network (RNN)
+    - LSTM layer
+    - Transformer encoder layer
+
+    The last one has been the best performing solution. 

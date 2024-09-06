@@ -136,6 +136,8 @@ class FakeBELT(FakeModel):
         self.pool_strategy = pool
         if pool == 'rnn':
             self.rnn = torch.nn.RNN(model.config.hidden_size,model.config.hidden_size,batch_first=True)
+        elif pool == 'lstm':
+            self.lstm = torch.nn.LSTM(model.config.hidden_size,model.config.hidden_size,batch_first=True, dropout=0.3)
         elif pool == 'transf':
             self.overtransformer = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
                                                                     8, batch_first=True,
@@ -222,6 +224,8 @@ class FakeBELT(FakeModel):
             return x[:,:hidden_size]
         elif self.pool_strategy == 'rnn':
             return self.rnn(x,torch.unsqueeze(torch.ones(x.shape[0],x.shape[-1]),0).to(x.device))[1][0]
+        elif self.pool_strategy == 'lstm':
+            return self.lstm(x)[0][:,-1]
         elif self.pool_strategy == 'transf':
             return self.overtransformer(x)[:,0]
         else:
