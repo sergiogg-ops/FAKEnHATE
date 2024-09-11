@@ -1,6 +1,6 @@
 # FAKEnHATE
 Fake news detection in Spanish
-This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. It also contains the results of our experimentation in the logs folder that has been generated using an MLFlow logger. It might be usefull to use the get_top.py script to check the best scoring runs. This experimentation has been performed in the following way:
+This git includes the code to train and evaluate models for this task with the Fake News Corpus Spanish. The corpus included equivalent topics in Spanish and English, so we translated them to English for the shake of clarity. It also contains the results of our experimentation in the logs folder that has been generated using an MLFlow logger. It might be usefull to use the get_top.py script to check the best scoring runs. This experimentation has been performed in the following way:
 
 1. Baseline: simple RoBERTa model with the best parameters.
     - Learning rate: 2e-5
@@ -54,4 +54,4 @@ This git includes the code to train and evaluate models for this task with the F
     - LSTM layer
     - Transformer encoder layer
 
-    The last one has been the best performing solution. 
+    The last one has been the best performing solution.

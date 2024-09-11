@@ -163,6 +163,7 @@ cython_debug/
 
 data/*
 !data/split.py
+!data/adapt.py
 
 models/*
 figures/*

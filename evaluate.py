@@ -17,13 +17,17 @@ parser.add_argument('-b','--batch_size', type=int, default=8, help='Batch size')
 parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask named entities, if no arguments are given all entities are masked')
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode: detailed statistics and a hint of an optimum classification threshold')
 parser.add_argument('-out','--output', help='If provided the file in which the predictions will be saved')
+parser.add_argument('-size','--model_size', default='base', choices=['base','large'], help='Model size')
 parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
 parser.add_argument('-pool','--pool_strategy', default='transf',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
 parser.add_argument('-thr','--threshold', type=float, default=0.5, help='Threshold for the fake news detection')
 args = parser.parse_args()
 
-tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+#tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+#model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+tokenizer = AutoTokenizer.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
+model = RobertaModel.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
+
 if args.full_length:
     model = utils.FakeBELT(model, tokenizer=tokenizer, pool=args.pool_strategy)
     #model = utils.CustomBELT(model, tokenizer=tokenizer)
@@ -39,7 +43,7 @@ num_workers = os.cpu_count() - 1
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
 predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader], ckpt_path=args.model)
-predictions = torch.nn.functional.softmax(torch.concatenate(predictions))
+predictions = torch.nn.functional.softmax(torch.concatenate(predictions), dim=1)
 
 fake_scores = predictions[:,0].tolist()
 conf = torch.sqrt(torch.mean(torch.square(predictions[:,0] - 0.5)))

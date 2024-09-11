@@ -11,13 +11,15 @@ utils.seed_everything(42)
 parser = ArgumentParser(description='Train a BERT like model to detect fake news')
 parser.add_argument('data_dir', help='Directory of the traning data')
 parser.add_argument('save_dir', help='Directory to save the model')
+parser.add_argument('-size','--model_size', default='base', choices=['base','large'], help='Model size')
 parser.add_argument('-e','--epochs', type=int, default=10, help='Number of epochs to train')
 parser.add_argument('-b','--batch_size', type=int, default=8, help='Batch size')
+parser.add_argument('-val_interval','--val_check_interval', type=int, default=987, help='Number of samples between validations')
 parser.add_argument('-acc','--accumulate_grad', type=int, default=1, help='Number of batches to accumulate the gradients')
 parser.add_argument('-lr','--learning_rate', type=float, default=2e-5, help='Learning rate')
 parser.add_argument('-exp','--experiment_name', default='baseline', help='Name of the series of runs')
 parser.add_argument('-run','--run_name', type=str, default='run', help='Name of the run')
-parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask named entities, if no arguments are given all entities are masked')
+parser.add_argument('-ner','--mask_ner', nargs='*', help='Mask the specified named entities')
 parser.add_argument('-lr_sch','--lr_scheduler', default=0.7, type=float, help='Start factor for the linear scheduler')
 parser.add_argument('-no','--noise', default=False, choices=['uniform','normal'], help='Use noisy embeddings')
 parser.add_argument('-alpha','--alpha',type=float, default=0, help='Alpha paratemetr to scale the noise in the embeddings')
@@ -30,11 +32,11 @@ parser.add_argument('-t','--test', default=False, action='store_true', help='Tes
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
 
-if args.mask_ner == [] and args.verbose:
-        print('Todas las entidades serán enmascaradas')
+#tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+#model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+tokenizer = AutoTokenizer.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
+model = RobertaModel.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
 
-tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 if args.full_length:
         model = utils.FakeBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=args.max_length, pool=args.pool_strategy, step=args.stride)
         #model = utils.CustomBELT(model, tokenizer=tokenizer, add_noise=args.noise, max_length=2500, step=args.stride)
@@ -73,7 +75,7 @@ trainer = L.Trainer(max_steps=int(987/args.batch_size+1)*25,
                     logger=logger,
                     callbacks=callbacks,
                     check_val_every_n_epoch=None,
-                    val_check_interval=int(987/args.batch_size+1),
+                    val_check_interval=args.val_check_interval//args.batch_size+1,
                     accumulate_grad_batches=args.accumulate_grad,
                     deterministic=True)
 

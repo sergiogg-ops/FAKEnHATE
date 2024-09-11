@@ -78,7 +78,7 @@ class FakeModel(torch.nn.Module):
                     'normal':torch.randn_like,
                     False:None}[add_noise]
 
-    def forward(self, batch, alpha = 1):
+    def forward(self, batch, alpha = 1, output_attentions = False):
         '''
         Make an inference with the model
 
@@ -97,6 +97,8 @@ class FakeModel(torch.nn.Module):
             model_output = self.extractor(inputs_embeds=embs, attention_mask=attn_mask)
         else:
             model_output = self.extractor(x, attn_mask)
+        if output_attentions:
+            return self.head(model_output.pooler_output), model_output.attentions
         return self.head(model_output.pooler_output)
     
     def train(self, mode = True):
