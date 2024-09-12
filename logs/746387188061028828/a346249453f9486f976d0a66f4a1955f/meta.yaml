@@ -1,0 +1,15 @@
+artifact_uri: file:///home/sgomgon/work/logs/746387188061028828/a346249453f9486f976d0a66f4a1955f/artifacts
+end_time: 1726136621844
+entry_point_name: ''
+experiment_id: '746387188061028828'
+lifecycle_stage: active
+run_id: a346249453f9486f976d0a66f4a1955f
+run_name: large
+run_uuid: a346249453f9486f976d0a66f4a1955f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1726136617742
+status: 4
+tags: []
+user_id: sgomgon
