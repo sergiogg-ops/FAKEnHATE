@@ -30,13 +30,12 @@ tokenizer = AutoTokenizer.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_si
 model = RobertaModel.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
 
 if args.full_length:
-    model = utils.FakeBELT(model, tokenizer=tokenizer, pool=args.pool_strategy)
+    model = utils.FakeBELT(model, tokenizer=tokenizer, pool=args.pool_strategy, max_length=args.max_length)
     #model = utils.CustomBELT(model, tokenizer=tokenizer)
 else:
     model = utils.FakeModel(model, tokenizer=tokenizer)
 
 model = utils.LightningModel.load_from_checkpoint(args.model, model=model, tokenizer=tokenizer)
-model.max_length = 50
 masker = utils.NamedEntityMasker(args.mask_ner) if args.mask_ner else None
 
 data = pd.read_json(args.file)

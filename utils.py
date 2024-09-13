@@ -94,9 +94,9 @@ class FakeModel(torch.nn.Module):
             scale = alpha / torch.unsqueeze(torch.sqrt(torch.sum(attn_mask, dim=1,keepdim=True) * embs.size(-1)),2).expand(-1,x.shape[-1],embs.size(-1))
             noise = self.noise(embs) * scale
             embs = embs + noise * torch.unsqueeze(attn_mask,2).expand(-1,-1,embs.size(-1))
-            model_output = self.extractor(inputs_embeds=embs, attention_mask=attn_mask)
+            model_output = self.extractor(inputs_embeds=embs, attention_mask=attn_mask, output_attentions=output_attentions)
         else:
-            model_output = self.extractor(x, attn_mask)
+            model_output = self.extractor(x, attn_mask, output_attentions=output_attentions)
         if output_attentions:
             return self.head(model_output.pooler_output), model_output.attentions
         return self.head(model_output.pooler_output)
