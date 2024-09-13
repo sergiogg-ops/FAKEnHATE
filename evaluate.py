@@ -20,6 +20,7 @@ parser.add_argument('-out','--output', help='If provided the file in which the p
 parser.add_argument('-size','--model_size', default='base', choices=['base','large'], help='Model size')
 parser.add_argument('-full','--full_length', default=False, action='store_true', help='Use full length of the text')
 parser.add_argument('-pool','--pool_strategy', default='transf',choices=['max','avg','sum','attn','rnn','transf'], help='Aggregation strategy for the CLS tokens of each chunk.')
+parser.add_argument('-max','--max_length', type=int, help='Maximum length of the text')
 parser.add_argument('-thr','--threshold', type=float, default=0.5, help='Threshold for the fake news detection')
 args = parser.parse_args()
 
@@ -35,6 +36,7 @@ else:
     model = utils.FakeModel(model, tokenizer=tokenizer)
 
 model = utils.LightningModel.load_from_checkpoint(args.model, model=model, tokenizer=tokenizer)
+model.max_length = 50
 masker = utils.NamedEntityMasker(args.mask_ner) if args.mask_ner else None
 
 data = pd.read_json(args.file)
@@ -42,7 +44,7 @@ test_set = utils.FakeSet(args.file, sep=tokenizer.sep_token, masker=masker, verb
 num_workers = os.cpu_count() - 1
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
-predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader], ckpt_path=args.model)
+predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader])#, ckpt_path=args.model)
 predictions = torch.nn.functional.softmax(torch.concatenate(predictions), dim=1)
 
 fake_scores = predictions[:,0].tolist()
