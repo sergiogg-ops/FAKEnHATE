@@ -143,6 +143,7 @@ class FakeBELT(FakeModel):
             self.overtransformer = torch.nn.TransformerEncoderLayer(model.config.hidden_size,
                                                                     8, batch_first=True,
                                                                     norm_first=True)
+            self.overtransformer._sa_block = self._sa_block
             #self.overtransformer = CustomEncoder(1)
         self.extractor.pooler = torch.nn.Sequential(
             torch.nn.LayerNorm(model.config.hidden_size),
@@ -154,8 +155,10 @@ class FakeBELT(FakeModel):
         self.eos = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
         self.pad = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
         self.max_length = max_length
+        self.attn_weights = None
+        self.output_attentions = False
 
-    def forward(self, batch, alpha = 1):
+    def forward(self, batch, alpha = 1, output_attentions = False):
         '''
         Make an inference with the model
 
@@ -165,6 +168,7 @@ class FakeBELT(FakeModel):
         '''
         CHUNK_SIZE = self.tokenizer.model_max_length - 2
         STEP = int(CHUNK_SIZE * self.step)
+        self.output_attentions = output_attentions
         # TOKENIZAR
         batch = self.tokenizer(batch, return_tensors='pt', padding=True, max_length=self.max_length, truncation=True)
         x, attn_mask = batch['input_ids'].to(self.extractor.device), batch['attention_mask'].to(self.extractor.device)
@@ -199,6 +203,8 @@ class FakeBELT(FakeModel):
         hidden_state = self.pool(hidden_state, dim=1)
         model_output = self.extractor.pooler(hidden_state)
         # CLASIFICACION
+        if output_attentions:
+            return self.head(model_output), self.attn_weights
         return self.head(model_output)
 
     def pool(self, x, dim = 1):
@@ -231,6 +237,16 @@ class FakeBELT(FakeModel):
             return self.overtransformer(x)[:,0]
         else:
             raise ValueError(f'Unknown pooling strategy: {self.pool_strategy}')
+    
+    def _sa_block(self, x, attn_mask, key_padding_mask, is_causal):
+        x, attn_w = self.overtransformer.self_attn(x, x, x,
+                           attn_mask=attn_mask,
+                           key_padding_mask=key_padding_mask,
+                           need_weights=self.output_attentions, 
+                           average_attn_weights=False,
+                           is_causal=is_causal)
+        self.attn_weights = attn_w
+        return self.overtransformer.dropout1(x)
     
 class CustomEncoder(torch.nn.Module):
     '''
