@@ -55,3 +55,9 @@ This git includes the code to train and evaluate models for this task with the F
     - Transformer encoder layer
 
     The last one has been the best performing solution.
+
+# Analysis
+In the `results` folder we have made available the jupyter notebooks that we have used to perform the results anaylisis:
+- In the `new_partitions.ipynb` is the code needed to perform the analysis of the experiments runned over the partitions obtained with the `data/split.py` script.
+- In the `original_partition.ipynb` is the code needed to perform the analysis of the experiments runned over the original partitions of `https://github.com/jpposadas/FakeNewsCorpusSpanish.git`.
+- In the `attention.ipynb` is the code that analyses the attention weights of the different experiments.
