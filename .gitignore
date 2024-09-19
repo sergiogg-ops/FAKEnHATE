@@ -169,5 +169,6 @@ data/*
 
 models/*
 figures/*
+tabla*
 *.out
 *.tar
