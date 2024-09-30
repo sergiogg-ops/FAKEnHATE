@@ -20,7 +20,7 @@ prompt += '\n'
 
 coletilla = '\nPor favor, responde únicamente con una de estas dos palabras sin ninguna explicación más: {Fake, True}'
 data['headline'] = data['headline'].fillna('')
-data['input'] = [prompt+'TÍTULO: '+title+'\nCUERPO: '+text+coletilla for text,title in zip(data['text'],data['headline'])]
+data['input'] = [prompt+'TITULO: '+title+'\nCUERPO: '+text+coletilla for text,title in zip(data['text'],data['headline'])]
 
 #data['predictions'] = data['input'].apply(lambda x: ollama.generate(model=args.model, prompt=x))
 data['predictions'] = [ollama.generate(model=args.model, prompt=x)['response'] for x in tqdm(data['input'])]
