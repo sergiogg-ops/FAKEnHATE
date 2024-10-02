@@ -54,6 +54,7 @@ This git includes the code to train and evaluate models for this task with the F
     - Transformer encoder layer
 
     The last one has been the best performing solution.
+7. Use a Llama model to classify the articles with one of the prompts in the `prompts` folder and the `llama.py` script.
 
 # Analysis
 In the `results` folder we have made available the jupyter notebooks that we have used to perform the results anaylisis:
