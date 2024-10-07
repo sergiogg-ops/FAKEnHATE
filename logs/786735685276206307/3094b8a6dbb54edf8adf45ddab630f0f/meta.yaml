@@ -1,0 +1,15 @@
+artifact_uri: file:///home/sergio/Escritorio/FAKEnHATE/logs/786735685276206307/3094b8a6dbb54edf8adf45ddab630f0f/artifacts
+end_time: 1728050867656
+entry_point_name: ''
+experiment_id: '786735685276206307'
+lifecycle_stage: active
+run_id: 3094b8a6dbb54edf8adf45ddab630f0f
+run_name: back-belt-noise
+run_uuid: 3094b8a6dbb54edf8adf45ddab630f0f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1728049628018
+status: 3
+tags: []
+user_id: sergio

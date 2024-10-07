@@ -13,16 +13,21 @@ np.random.seed(seed)
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-if len(sys.argv) != 2:
+fake = pd.read_json('data/pubreleasednewsfiles/full.json')
+if len(sys.argv) < 2 or len(sys.argv) > 3:
     print('Add N samples to the training data with a refined selection')
-    print('Uso: python add_sel.py num')
+    print('Uso: python add_sel.py num [folder]')
+    print(f'num < {len(fake)}')
     exit()
+if len(sys.argv) == 3:
+    folder = sys.argv[2]
+else:
+    folder = 'base'
 N = int(sys.argv[1])
 
-fake = pd.read_json('data/pubreleasednewsfiles/full.json')
 #true = pd.read_json('data/LOCO/subset_mainstream.json')
 true = pd.read_json('data/LOCO/LOCO_sel_trans.json')
-base = pd.read_json('data/base/train.json')
+base = pd.read_json(f'data/{folder}/train.json')
 
 if len(fake) < N or len(true) < N:
     # max 6942
