@@ -47,14 +47,10 @@ masker = utils.NamedEntityMasker(args.mask_ner) if args.mask_ner else None
 
 train_set = utils.FakeSet(os.path.join(args.data_dir,'train.json'), sep=tokenizer.sep_token, verbose=args.verbose, masker=masker)
 dev_set = utils.FakeSet(os.path.join(args.data_dir,'dev.json'), sep=tokenizer.sep_token, verbose=args.verbose, masker=masker)
-if args.test:
-        test_set = utils.FakeSet(os.path.join(args.data_dir,'test.json'), sep=tokenizer.sep_token, masker=masker, verbose=args.verbose)
 
 num_workers = os.cpu_count() - 1
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=num_workers)
 dev_loader = torch.utils.data.DataLoader(dev_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
-if args.test:
-        test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
 #optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
 #lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
@@ -81,4 +77,6 @@ trainer = L.Trainer(max_steps=int(987/args.batch_size+1)*25,
 
 trainer.fit(model, train_loader, dev_loader)
 if args.test:
+        test_set = utils.FakeSet(os.path.join(args.data_dir,'test.json'), sep=tokenizer.sep_token, masker=masker, verbose=args.verbose)
+        test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
         trainer.test(model, test_loader, ckpt_path='best')

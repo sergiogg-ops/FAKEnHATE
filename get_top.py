@@ -8,7 +8,7 @@ parser.add_argument('dir', help='Directory of the experimentation')
 parser.add_argument('experiment', help='Directory of the experiment (name)')
 parser.add_argument('metric', help='Metric to compare')
 parser.add_argument('-n','--top', type=int, default=5, help='Number of top runs to show')
-parser.add_argument('-m','--mode', default='max', choices=['max','min'], help='Mode of the metric')
+parser.add_argument('-m','--mode', default='max', choices=['max','min'], help='Optimization direction of the metric')
 args = parser.parse_args()
 
 exp2id = {}

@@ -20,6 +20,7 @@ class TranslationPipelineWithProgress:
             TranslationPipelineWithProgress object.
         '''
         self.translator = TranslationPipeline(model=model,tokenizer=tokenizer, batch_size=batch_size, device=device, **kwargs)
+        self.tokenizer = tokenizer
         self.batch_size = batch_size
 
     def __call__(self, texts, desc=None, **kwargs):
@@ -46,7 +47,7 @@ class TranslationPipelineWithProgress:
 
 def split_lists(data, field = 'message_description'):
     '''
-    Split the lists in the data into sentences and mask the first sentence of each sample.
+    Split the lists in the data into sentences and mark the first sentence of each sample.
 
     Args:
         data: DataFrame with the data.
@@ -68,7 +69,7 @@ def split_lists(data, field = 'message_description'):
 
 def split_texts(data, field = 'message_description'):
     '''
-    Split the texts in the data into sentences and mask the first sentence of each sample.
+    Split the texts in the data into sentences and mark the first sentence of each sample.
 
     Args:
         data: DataFrame with the data.
@@ -150,7 +151,7 @@ def translate(translator, data, src_lang, tgt_lang, field='message_description')
         texts, mask = split_lists(data, field=field)
     else:
         texts, mask = split_texts(data, field=field)
-    output = translator(texts, max_length=512, return_text=True, truncation=True, src_lang=src_lang, tgt_lang=tgt_lang)
+    output = translator(texts, max_length=translator.tokenizer.model_max_length, return_text=True, truncation=True, src_lang=src_lang, tgt_lang=tgt_lang)
     output = [out['translation_text'] for out in output]
     if contains_lists:
         translations = wrapp_lists(output, mask)
