@@ -4,15 +4,20 @@ import sys
 
 np.random.seed(42)
 
-if len(sys.argv) != 2:
-    print('Add N samples to the training data')
-    print('Uso: python add.py num')
+fake = pd.read_json('data/pubreleasednewsfiles/full.json')
+if len(sys.argv) < 2 or len(sys.argv) > 3:
+    print('Add N samples to the training data with a refined selection')
+    print('Uso: python add.py num [folder]')
+    print(f'num < {len(fake)}')
     exit()
+if len(sys.argv) == 3:
+    folder = sys.argv[2]
+else:
+    folder = 'base'
 N = int(sys.argv[1])
 
-fake = pd.read_json('data/pubreleasednewsfiles/full.json')
 true = pd.read_json('data/LOCO/subset_mainstream.json')
-base = pd.read_json('data/base/train.json')
+base = pd.read_json(F'data/{folder}/train.json')
 
 if len(fake) < N or len(true) < N:
     # max 6942

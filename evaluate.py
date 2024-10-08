@@ -24,8 +24,6 @@ parser.add_argument('-max','--max_length', type=int, help='Maximum length of the
 parser.add_argument('-thr','--threshold', type=float, default=0.5, help='Threshold for the fake news detection')
 args = parser.parse_args()
 
-#tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-#model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 tokenizer = AutoTokenizer.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
 model = RobertaModel.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
 
@@ -43,7 +41,7 @@ test_set = utils.FakeSet(args.file, sep=tokenizer.sep_token, masker=masker, verb
 num_workers = os.cpu_count() - 1
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
 
-predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader])#, ckpt_path=args.model)
+predictions = L.Trainer(logger=False).predict(model, dataloaders=[test_loader])
 predictions = torch.nn.functional.softmax(torch.concatenate(predictions), dim=1)
 
 fake_scores = predictions[:,0].tolist()

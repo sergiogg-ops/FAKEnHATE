@@ -32,8 +32,6 @@ parser.add_argument('-t','--test', default=False, action='store_true', help='Tes
 parser.add_argument('-v','--verbose', default=False, action='store_true', help='Verbose mode')
 args = parser.parse_args()
 
-#tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-#model = RobertaModel.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 tokenizer = AutoTokenizer.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
 model = RobertaModel.from_pretrained(f"PlanTL-GOB-ES/roberta-{args.model_size}-bne")
 
@@ -51,9 +49,6 @@ dev_set = utils.FakeSet(os.path.join(args.data_dir,'dev.json'), sep=tokenizer.se
 num_workers = os.cpu_count() - 1
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=num_workers)
 dev_loader = torch.utils.data.DataLoader(dev_set, batch_size=args.batch_size, shuffle=False, num_workers=num_workers)
-
-#optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9,0.999), eps=1e-8)
-#lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor = args.lr_scheduler, end_factor = 1, total_iters = args.epochs)
 
 model = utils.LightningModel(model, tokenizer, 
                              lr=args.learning_rate, 

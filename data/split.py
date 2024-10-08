@@ -1,7 +1,6 @@
-'''
-Merge the original train, development and test datasets from the FakeNewsCorpusSpanish dataset
- and split them into new stratified and balanced train, development and test datasets.
-'''
+# Merge the original train, development and test datasets from the FakeNewsCorpusSpanish dataset
+# and split them into new stratified and balanced train, development and test datasets.
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 

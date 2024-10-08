@@ -1,6 +1,5 @@
-'''
-Adapts the FakeNewsCorpusSpanish dataset to a uniform format.
-'''
+# Adapt the FakeNewsCorpusSpanish dataset to a uniform format.
+
 import pandas as pd
 import os
 
